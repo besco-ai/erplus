@@ -16,6 +16,10 @@ public class ReportsModuleInstaller : IModuleInstaller
     {
         services.AddScoped<DashboardService>();
         services.AddScoped<PdfReportService>();
+        services.AddScoped<CommercialDashboardService>();
+        services.AddScoped<AdminDashboardService>();
+        services.AddScoped<SupportDashboardService>();
+        services.AddScoped<ProductionDashboardService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -31,5 +35,17 @@ public class ReportsModuleInstaller : IModuleInstaller
             if (!result.IsSuccess) return Results.BadRequest(new { error = result.Error });
             return Results.File(result.Data!, "application/pdf", $"ERPlus_Dashboard_{DateTime.Now:yyyyMMdd_HHmm}.pdf");
         });
+
+        group.MapGet("/commercial", async (CommercialDashboardService svc) =>
+            Results.Ok((await svc.GetAsync()).Data));
+
+        group.MapGet("/admin", async (AdminDashboardService svc) =>
+            Results.Ok((await svc.GetAsync()).Data));
+
+        group.MapGet("/support", async (SupportDashboardService svc) =>
+            Results.Ok((await svc.GetAsync()).Data));
+
+        group.MapGet("/production", async (ProductionDashboardService svc) =>
+            Results.Ok((await svc.GetAsync()).Data));
     }
 }
