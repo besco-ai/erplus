@@ -1,0 +1,32 @@
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS base
+WORKDIR /app
+EXPOSE 8080
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
+WORKDIR /src
+
+COPY ["ERPlus.sln", "."]
+COPY ["src/API/ERPlus.API.csproj", "src/API/"]
+COPY ["src/Shared/ERPlus.Shared.csproj", "src/Shared/"]
+COPY ["src/Modules/Identity/ERPlus.Modules.Identity.csproj", "src/Modules/Identity/"]
+COPY ["src/Modules/CRM/ERPlus.Modules.CRM.csproj", "src/Modules/CRM/"]
+COPY ["src/Modules/Commercial/ERPlus.Modules.Commercial.csproj", "src/Modules/Commercial/"]
+COPY ["src/Modules/Finance/ERPlus.Modules.Finance.csproj", "src/Modules/Finance/"]
+COPY ["src/Modules/Projects/ERPlus.Modules.Projects.csproj", "src/Modules/Projects/"]
+COPY ["src/Modules/Production/ERPlus.Modules.Production.csproj", "src/Modules/Production/"]
+COPY ["src/Modules/Tasks/ERPlus.Modules.Tasks.csproj", "src/Modules/Tasks/"]
+COPY ["src/Modules/Schedule/ERPlus.Modules.Schedule.csproj", "src/Modules/Schedule/"]
+COPY ["src/Modules/Documents/ERPlus.Modules.Documents.csproj", "src/Modules/Documents/"]
+COPY ["src/Modules/Automation/ERPlus.Modules.Automation.csproj", "src/Modules/Automation/"]
+COPY ["src/Modules/Reports/ERPlus.Modules.Reports.csproj", "src/Modules/Reports/"]
+COPY ["src/Modules/Config/ERPlus.Modules.Config.csproj", "src/Modules/Config/"]
+
+RUN dotnet restore
+
+COPY . .
+RUN dotnet publish src/API/ERPlus.API.csproj -c Release -o /app/publish --no-restore
+
+FROM base AS final
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "ERPlus.API.dll"]

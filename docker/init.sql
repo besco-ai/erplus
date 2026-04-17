@@ -1,0 +1,19 @@
+-- ERPlus - Schema-per-module strategy
+-- Cada módulo tem seu próprio schema para isolamento de dados
+
+CREATE SCHEMA IF NOT EXISTS identity;
+CREATE SCHEMA IF NOT EXISTS crm;
+CREATE SCHEMA IF NOT EXISTS commercial;
+CREATE SCHEMA IF NOT EXISTS finance;
+CREATE SCHEMA IF NOT EXISTS projects;
+CREATE SCHEMA IF NOT EXISTS production;
+CREATE SCHEMA IF NOT EXISTS tasks;
+CREATE SCHEMA IF NOT EXISTS schedule;
+CREATE SCHEMA IF NOT EXISTS documents;
+CREATE SCHEMA IF NOT EXISTS automation;
+CREATE SCHEMA IF NOT EXISTS reports;
+CREATE SCHEMA IF NOT EXISTS config;
+
+-- Extensões úteis
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "unaccent";

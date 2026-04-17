@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: erplus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-erplus}
+      POSTGRES_USER: ${DB_USER:-erplus}
+      POSTGRES_PASSWORD: ${DB_PASS:-erplus123}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-erplus}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: erplus-api
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${DB_NAME:-erplus};Username=${DB_USER:-erplus};Password=${DB_PASS:-erplus123}"
+      Jwt__Key: ${JWT_SECRET_KEY:-ERPlus-Dev-SecretKey-MinimoTrintaDoisChars!}
+      Jwt__Issuer: ${JWT_ISSUER:-ERPlus}
+      Jwt__Audience: ${JWT_AUDIENCE:-ERPlus}
+      Client__Url: ${CLIENT_URL:-http://localhost:3000}
+    volumes:
+      - api-logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  client:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: erplus-client
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  api-logs:

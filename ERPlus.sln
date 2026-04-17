@@ -1,0 +1,41 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.API", "src\API\ERPlus.API.csproj", "{A1B2C3D4-1111-2222-3333-444455556666}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Shared", "src\Shared\ERPlus.Shared.csproj", "{A1B2C3D4-1111-2222-3333-444455557777}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Identity", "src\Modules\Identity\ERPlus.Modules.Identity.csproj", "{B1000001-0000-0000-0000-000000000001}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.CRM", "src\Modules\CRM\ERPlus.Modules.CRM.csproj", "{B1000001-0000-0000-0000-000000000002}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Commercial", "src\Modules\Commercial\ERPlus.Modules.Commercial.csproj", "{B1000001-0000-0000-0000-000000000003}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Finance", "src\Modules\Finance\ERPlus.Modules.Finance.csproj", "{B1000001-0000-0000-0000-000000000004}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Projects", "src\Modules\Projects\ERPlus.Modules.Projects.csproj", "{B1000001-0000-0000-0000-000000000005}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Production", "src\Modules\Production\ERPlus.Modules.Production.csproj", "{B1000001-0000-0000-0000-000000000006}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Tasks", "src\Modules\Tasks\ERPlus.Modules.Tasks.csproj", "{B1000001-0000-0000-0000-000000000007}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Schedule", "src\Modules\Schedule\ERPlus.Modules.Schedule.csproj", "{B1000001-0000-0000-0000-000000000008}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Documents", "src\Modules\Documents\ERPlus.Modules.Documents.csproj", "{B1000001-0000-0000-0000-000000000009}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Automation", "src\Modules\Automation\ERPlus.Modules.Automation.csproj", "{B1000001-0000-0000-0000-000000000010}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Reports", "src\Modules\Reports\ERPlus.Modules.Reports.csproj", "{B1000001-0000-0000-0000-000000000011}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Config", "src\Modules\Config\ERPlus.Modules.Config.csproj", "{B1000001-0000-0000-0000-000000000012}"
+EndProject
+
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+EndGlobal

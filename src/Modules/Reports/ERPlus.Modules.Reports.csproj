@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>ERPlus.Modules.Reports</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0-*" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0-*" />
+    <PackageReference Include="QuestPDF" Version="2024.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\ERPlus.Shared.csproj" />
+    <ProjectReference Include="..\Identity\ERPlus.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Commercial\ERPlus.Modules.Commercial.csproj" />
+    <ProjectReference Include="..\Finance\ERPlus.Modules.Finance.csproj" />
+    <ProjectReference Include="..\Projects\ERPlus.Modules.Projects.csproj" />
+    <ProjectReference Include="..\Tasks\ERPlus.Modules.Tasks.csproj" />
+    <ProjectReference Include="..\Schedule\ERPlus.Modules.Schedule.csproj" />
+  </ItemGroup>
+</Project>
