@@ -207,7 +207,7 @@ function TaskModal({ task, onClose, onSaved }) {
   );
 }
 
-export default function TasksPage() {
+export default function TasksPage({ mine = false }) {
   const [tasks, setTasks] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -217,14 +217,15 @@ export default function TasksPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const userFilter = mine && user?.id ? `?responsibleId=${user.id}` : '';
       const [tRes, sRes] = await Promise.all([
-        api.get('/tasks'),
-        api.get('/tasks/summary'),
+        api.get(`/tasks${userFilter}`),
+        api.get(`/tasks/summary${userFilter}`),
       ]);
       setTasks(tRes.data);
       setSummary(sRes.data);
     } catch { /* silent */ } finally { setLoading(false); }
-  }, []);
+  }, [mine, user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

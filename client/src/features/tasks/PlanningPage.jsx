@@ -12,14 +12,19 @@ export default function PlanningPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const userId = user?.userId;
+      const userId = user?.id;
       const now = new Date();
       const from = now.toISOString().slice(0, 10);
       const to = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
+      const tasksUrl = userId ? `/tasks?responsibleId=${userId}` : '/tasks';
+      const eventsUrl = userId
+        ? `/schedule/events?from=${from}&to=${to}&responsibleId=${userId}`
+        : `/schedule/events?from=${from}&to=${to}`;
+
       const [tRes, eRes] = await Promise.all([
-        api.get(`/tasks?responsibleId=${userId}`),
-        api.get(`/schedule/events?from=${from}&to=${to}`),
+        api.get(tasksUrl),
+        api.get(eventsUrl),
       ]);
 
       setTasks(tRes.data.filter((t) => t.status !== 'Finalizado').sort((a, b) => {

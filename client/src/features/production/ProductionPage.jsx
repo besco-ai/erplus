@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, Trash2, Edit, Clock } from 'lucide-react';
 import api from '../../services/api';
+import useAuthStore from '../../hooks/useAuthStore';
 
 const CATEGORIES = [
   { key: 'licenciamentos', label: 'Licenciamentos', color: '#F59E0B' },
@@ -84,7 +85,8 @@ function ItemModal({ item, activeCategory, onClose, onSaved }) {
   );
 }
 
-export default function ProductionPage() {
+export default function ProductionPage({ mine = false }) {
+  const { user } = useAuthStore();
   const [items, setItems] = useState([]);
   const [summary, setSummary] = useState([]);
   const [activeCategory, setActiveCategory] = useState('licenciamentos');
@@ -94,14 +96,15 @@ export default function ProductionPage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const userFilter = mine && user?.id ? `&responsibleId=${user.id}` : '';
       const [iRes, sRes] = await Promise.all([
-        api.get(`/production/items?category=${activeCategory}`),
+        api.get(`/production/items?category=${activeCategory}${userFilter}`),
         api.get('/production/summary'),
       ]);
       setItems(iRes.data);
       setSummary(sRes.data);
     } catch { /* silent */ } finally { setLoading(false); }
-  }, [activeCategory]);
+  }, [activeCategory, mine, user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 

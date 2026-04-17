@@ -11,11 +11,17 @@ public class EventService
 
     public EventService(ScheduleDbContext db) => _db = db;
 
+    // Npgsql rejects DateTime with Kind=Unspecified when the column is
+    // timestamp with time zone. Query-string dates come in as Unspecified
+    // (no offset), so normalize here.
+    private static DateTime AsUtc(DateTime d) =>
+        d.Kind == DateTimeKind.Utc ? d : DateTime.SpecifyKind(d.ToUniversalTime(), DateTimeKind.Utc);
+
     public async Task<Result<List<EventDto>>> GetAllAsync(DateTime? from, DateTime? to, string? type, int? responsibleId)
     {
         var query = _db.Events.AsQueryable();
-        if (from.HasValue) query = query.Where(e => e.Date >= from.Value);
-        if (to.HasValue) query = query.Where(e => e.Date <= to.Value);
+        if (from.HasValue) { var f = AsUtc(from.Value); query = query.Where(e => e.Date >= f); }
+        if (to.HasValue)   { var t = AsUtc(to.Value);   query = query.Where(e => e.Date <= t); }
         if (!string.IsNullOrEmpty(type)) query = query.Where(e => e.Type == type);
         if (responsibleId.HasValue) query = query.Where(e => e.ResponsibleId == responsibleId.Value);
 
@@ -33,7 +39,7 @@ public class EventService
 
         var ev = new Event
         {
-            Title = r.Title.Trim(), Date = r.Date, Time = r.Time,
+            Title = r.Title.Trim(), Date = AsUtc(r.Date), Time = r.Time,
             DurationMinutes = r.DurationMinutes > 0 ? r.DurationMinutes : 60,
             Type = r.Type ?? "geral", RefId = r.RefId,
             Color = r.Color, Notes = r.Notes, ResponsibleId = r.ResponsibleId
@@ -52,7 +58,7 @@ public class EventService
         if (ev is null) return Result<EventDto>.NotFound();
 
         if (r.Title is not null) ev.Title = r.Title.Trim();
-        if (r.Date.HasValue) ev.Date = r.Date.Value;
+        if (r.Date.HasValue) ev.Date = AsUtc(r.Date.Value);
         if (r.Time is not null) ev.Time = r.Time;
         if (r.DurationMinutes.HasValue) ev.DurationMinutes = r.DurationMinutes.Value;
         if (r.Type is not null) ev.Type = r.Type;

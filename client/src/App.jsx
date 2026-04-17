@@ -50,15 +50,15 @@ export default function App() {
           </ProtectedRoute>
         }
       >
-        {/* Meu Espaço */}
+        {/* Meu Espaço — telas "Minhas ..." filtram pelo usuário logado (prop mine) */}
         <Route index element={<DashboardPage />} />
         <Route path="agenda" element={<SchedulePage />} />
         <Route path="contatos" element={<ContactsPage />} />
         <Route path="atas" element={<AtasPage />} />
-        <Route path="negociacoes" element={<PipelinePage />} />
-        <Route path="minha-producao" element={<ProductionPage />} />
+        <Route path="negociacoes" element={<PipelinePage mine />} />
+        <Route path="minha-producao" element={<ProductionPage mine />} />
         <Route path="planejamentos" element={<PlanningPage />} />
-        <Route path="tarefas" element={<TasksPage />} />
+        <Route path="tarefas" element={<TasksPage mine />} />
 
         {/* Administrativo */}
         <Route path="administrativo" element={<AdministrativoDashboardPage />} />

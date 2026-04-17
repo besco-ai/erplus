@@ -5,6 +5,7 @@ import {
   FileText, Edit, Trash2, ArrowRight, Star, Filter,
 } from 'lucide-react';
 import api from '../../services/api';
+import useAuthStore from '../../hooks/useAuthStore';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -267,9 +268,10 @@ function DealModal({ deal, onClose, onSaved }) {
   );
 }
 
-export default function PipelinePage() {
+export default function PipelinePage({ mine = false }) {
   const [searchParams] = useSearchParams();
   const pipelineQueryId = searchParams.get('pipeline');
+  const { user } = useAuthStore();
   const [pipelines, setPipelines] = useState([]);
   const [deals, setDeals] = useState([]);
   const [activePipeline, setActivePipeline] = useState(null);
@@ -280,9 +282,12 @@ export default function PipelinePage() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
+      const dealsUrl = mine && user?.id
+        ? `/commercial/deals?responsibleId=${user.id}`
+        : '/commercial/deals';
       const [pRes, dRes] = await Promise.all([
         api.get('/commercial/pipelines'),
-        api.get('/commercial/deals'),
+        api.get(dealsUrl),
       ]);
       setPipelines(pRes.data);
       setDeals(dRes.data);
@@ -290,7 +295,7 @@ export default function PipelinePage() {
     } catch { /* silent */ } finally {
       setLoading(false);
     }
-  }, []);
+  }, [mine, user?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
