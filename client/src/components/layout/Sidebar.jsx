@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard, Calendar, Users, TrendingUp, DollarSign, Folder,
+  LayoutDashboard, LayoutGrid, Calendar, Users, TrendingUp, Folder,
   CheckSquare, Settings, HelpCircle, LogOut, ChevronRight, ChevronLeft,
   Briefcase, FileText,
 } from 'lucide-react';
@@ -10,13 +10,15 @@ import useAuthStore from '../../hooks/useAuthStore';
 const menuSections = [
   {
     title: 'Meu Espaço',
+    icon: LayoutGrid,
+    defaultOpen: true,
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/' },
       { id: 'agenda', label: 'Agenda', icon: Calendar, path: '/agenda' },
       { id: 'contatos', label: 'Contatos', icon: Users, path: '/contatos' },
       { id: 'atas', label: 'Atas de Reuniões', icon: FileText, path: '/atas' },
       { id: 'negociacoes', label: 'Minhas Negociações', icon: TrendingUp, path: '/negociacoes' },
-      { id: 'producao', label: 'Minha Produção', icon: Folder, path: '/producao' },
+      { id: 'minha-producao', label: 'Minha Produção', icon: Folder, path: '/minha-producao' },
       { id: 'planejamentos', label: 'Meus Planejamentos', icon: Briefcase, path: '/planejamentos' },
       { id: 'tarefas', label: 'Minhas Tarefas', icon: CheckSquare, path: '/tarefas' },
     ],
@@ -24,7 +26,6 @@ const menuSections = [
   {
     title: 'Administrativo',
     icon: Briefcase,
-    collapsible: true,
     items: [
       { id: 'financeiro', label: 'Financeiro', path: '/financeiro' },
       { id: 'equipe', label: 'Equipe', path: '/equipe' },
@@ -33,7 +34,6 @@ const menuSections = [
   {
     title: 'Comercial',
     icon: TrendingUp,
-    collapsible: true,
     items: [
       { id: 'pipeline', label: 'Pipeline', path: '/comercial' },
       { id: 'orcamentos', label: 'Orçamentos', path: '/orcamentos' },
@@ -43,28 +43,55 @@ const menuSections = [
   {
     title: 'Produção',
     icon: Folder,
-    collapsible: true,
     items: [
+      { id: 'producao-dashboard', label: 'Dashboard', path: '/producao' },
       { id: 'empreendimentos', label: 'Empreendimentos', path: '/empreendimentos' },
-      { id: 'proj-producao', label: 'Produção', path: '/prod-geral' },
+      { id: 'producao-revisao', label: 'Revisão Técnica', path: '/producao/revisao-tecnica' },
+      { id: 'producao-licenciamentos', label: 'Licenciamentos', path: '/producao/licenciamentos' },
+      { id: 'producao-design', label: 'Design Criativo', path: '/producao/design' },
+      { id: 'producao-projetos', label: 'Projetos', path: '/producao/projetos' },
+      { id: 'producao-incorporacoes', label: 'Incorporações', path: '/producao/incorporacoes' },
+      { id: 'producao-supervisao', label: 'Supervisão', path: '/producao/supervisao' },
+      { id: 'producao-vistorias', label: 'Vistorias', path: '/producao/vistorias' },
+      { id: 'producao-averbacoes', label: 'Averbações', path: '/producao/averbacoes' },
     ],
   },
   {
     title: 'Suporte',
     icon: HelpCircle,
-    collapsible: true,
-    items: [
-      { id: 'tickets', label: 'Tickets', path: '/suporte' },
-    ],
+    items: [{ id: 'tickets', label: 'Tickets', path: '/suporte' }],
   },
 ];
 
+// Inicializa quais grupos começam abertos: Meu Espaço + o grupo que contém a rota ativa.
+function initialOpenSections(pathname) {
+  const open = {};
+  for (const section of menuSections) {
+    if (section.defaultOpen) open[section.title] = true;
+    if (section.items.some((i) => i.path === pathname)) open[section.title] = true;
+  }
+  return open;
+}
+
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
-  const [openSections, setOpenSections] = useState({});
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { logout } = useAuthStore();
+  const [openSections, setOpenSections] = useState(() => initialOpenSections(location.pathname));
+
+  // Auto-abre o grupo da rota ativa quando muda a rota
+  useEffect(() => {
+    setOpenSections((prev) => {
+      const next = { ...prev };
+      for (const section of menuSections) {
+        if (section.items.some((i) => i.path === location.pathname)) {
+          next[section.title] = true;
+        }
+      }
+      return next;
+    });
+  }, [location.pathname]);
 
   const toggleSection = (title) => {
     setOpenSections((prev) => ({ ...prev, [title]: !prev[title] }));
@@ -103,77 +130,87 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* Menu */}
+      {/* Menu — todas as seções são colapsáveis */}
       <nav className="flex-1 overflow-y-auto py-2 px-2">
-        {menuSections.map((section) => (
-          <div key={section.title} className="mb-1">
-            {section.collapsible ? (
+        {menuSections.map((section) => {
+          const isOpen = !!openSections[section.title];
+          const SectionIcon = section.icon;
+          return (
+            <div key={section.title} className="mb-1">
               <button
                 onClick={() => toggleSection(section.title)}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-400 hover:bg-white/5 transition"
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-300 hover:bg-white/5 transition"
+                title={collapsed ? section.title : undefined}
               >
-                {section.icon && <section.icon size={18} />}
+                {SectionIcon && <SectionIcon size={18} />}
                 {!collapsed && (
                   <>
                     <span className="flex-1 text-left">{section.title}</span>
                     <ChevronRight
                       size={14}
-                      className={`transition-transform ${openSections[section.title] ? 'rotate-90' : ''}`}
+                      className={`transition-transform ${isOpen ? 'rotate-90' : ''}`}
                     />
                   </>
                 )}
               </button>
-            ) : (
-              !collapsed && (
-                <div className="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  {section.title}
-                </div>
-              )
-            )}
 
-            {(!section.collapsible || openSections[section.title]) &&
-              section.items.map((item) => {
-                const isActive = location.pathname === item.path;
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => navigate(item.path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition mb-0.5 ${
-                      isActive
-                        ? 'bg-white/10 text-white font-semibold'
-                        : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                    }`}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    {Icon && <Icon size={18} />}
-                    {!collapsed && <span>{item.label}</span>}
-                  </button>
-                );
-              })}
-          </div>
-        ))}
+              {isOpen && !collapsed && (
+                <div className="ml-1 mt-0.5 border-l border-white/5 pl-2">
+                  {section.items.map((item) => {
+                    const isActive = location.pathname === item.path;
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => navigate(item.path)}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition mb-0.5 ${
+                          isActive
+                            ? 'bg-white/10 text-white font-semibold'
+                            : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        {Icon ? <Icon size={16} /> : <span className="w-4" />}
+                        <span>{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Footer */}
+      {/* Footer — ações fixas */}
       <div className="border-t border-white/10 p-2">
         <button
           onClick={() => navigate('/configuracoes')}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 transition"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${
+            location.pathname === '/configuracoes'
+              ? 'bg-white/10 text-white font-semibold'
+              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+          }`}
+          title={collapsed ? 'Configurações' : undefined}
         >
           <Settings size={18} />
           {!collapsed && <span>Configurações</span>}
         </button>
         <button
           onClick={() => navigate('/ajuda')}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 transition"
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition ${
+            location.pathname === '/ajuda'
+              ? 'bg-white/10 text-white font-semibold'
+              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+          }`}
+          title={collapsed ? 'Ajuda' : undefined}
         >
           <HelpCircle size={18} />
           {!collapsed && <span>Ajuda</span>}
         </button>
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 transition"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-white/5 hover:text-white transition"
+          title={collapsed ? 'Sair' : undefined}
         >
           <LogOut size={18} />
           {!collapsed && <span>Sair</span>}
