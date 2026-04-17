@@ -5,6 +5,7 @@ import {
   CheckSquare, Settings, HelpCircle, LogOut, ChevronRight, ChevronLeft,
   Briefcase, FileText,
 } from 'lucide-react';
+import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
 
 const menuSections = [
@@ -86,6 +87,20 @@ export default function Sidebar() {
   const location = useLocation();
   const { logout } = useAuthStore();
   const [openSections, setOpenSections] = useState(() => initialOpenSections(location.pathname));
+  const [commercialPipelines, setCommercialPipelines] = useState([]);
+
+  // Busca pipelines do módulo Comercial para renderizar como sub-items
+  // dinâmicos abaixo de "Negociações". Silencioso em caso de erro.
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await api.get('/commercial/pipelines');
+        if (Array.isArray(r.data)) setCommercialPipelines(r.data);
+      } catch {
+        /* silent */
+      }
+    })();
+  }, []);
 
   // Auto-abre o grupo da rota ativa quando muda a rota
   useEffect(() => {
@@ -166,19 +181,50 @@ export default function Sidebar() {
                   {section.items.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
+                    // Para o item "Negociações" do grupo Comercial, expande dinamicamente
+                    // os pipelines cadastrados como sub-items indentados.
+                    const showPipelines =
+                      section.title === 'Comercial' &&
+                      item.id === 'negociacoes-comercial' &&
+                      commercialPipelines.length > 0;
+
                     return (
-                      <button
-                        key={item.id}
-                        onClick={() => navigate(item.path)}
-                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition mb-0.5 ${
-                          isActive
-                            ? 'bg-white/10 text-white font-semibold'
-                            : 'text-gray-400 hover:bg-white/5 hover:text-white'
-                        }`}
-                      >
-                        {Icon ? <Icon size={16} /> : <span className="w-4" />}
-                        <span>{item.label}</span>
-                      </button>
+                      <div key={item.id}>
+                        <button
+                          onClick={() => navigate(item.path)}
+                          className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition mb-0.5 ${
+                            isActive
+                              ? 'bg-white/10 text-white font-semibold'
+                              : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                          }`}
+                        >
+                          {Icon ? <Icon size={16} /> : <span className="w-4" />}
+                          <span>{item.label}</span>
+                        </button>
+                        {showPipelines && (
+                          <div className="ml-5 border-l border-white/5 pl-2">
+                            {commercialPipelines.map((p) => {
+                              const path = `/comercial?pipeline=${p.id}`;
+                              const activePipe = location.pathname === '/comercial' &&
+                                new URLSearchParams(location.search).get('pipeline') === String(p.id);
+                              return (
+                                <button
+                                  key={p.id}
+                                  onClick={() => navigate(path)}
+                                  className={`w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition mb-0.5 ${
+                                    activePipe
+                                      ? 'bg-white/10 text-white font-semibold'
+                                      : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
+                                  }`}
+                                >
+                                  <span className="w-1 h-1 rounded-full bg-current opacity-60" />
+                                  <span className="truncate">{p.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
                 </div>

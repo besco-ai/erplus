@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, X, Save, ChevronRight, TrendingUp, DollarSign,
   FileText, Edit, Trash2, ArrowRight, Star, Filter,
@@ -267,6 +268,8 @@ function DealModal({ deal, onClose, onSaved }) {
 }
 
 export default function PipelinePage() {
+  const [searchParams] = useSearchParams();
+  const pipelineQueryId = searchParams.get('pipeline');
   const [pipelines, setPipelines] = useState([]);
   const [deals, setDeals] = useState([]);
   const [activePipeline, setActivePipeline] = useState(null);
@@ -290,6 +293,16 @@ export default function PipelinePage() {
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Seleciona o pipeline vindo por URL (?pipeline=ID) sempre que o param muda
+  // e quando a lista de pipelines carrega. Permite a sidebar abrir diretamente
+  // num pipeline específico.
+  useEffect(() => {
+    if (!pipelineQueryId) return;
+    const id = Number(pipelineQueryId);
+    if (!Number.isFinite(id)) return;
+    if (pipelines.some((p) => p.id === id)) setActivePipeline(id);
+  }, [pipelineQueryId, pipelines]);
 
   const currentPipeline = pipelines.find((p) => p.id === activePipeline);
 
