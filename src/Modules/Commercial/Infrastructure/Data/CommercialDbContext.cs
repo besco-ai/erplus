@@ -117,50 +117,5 @@ public class CommercialDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
         });
-
-        SeedData(modelBuilder);
-    }
-
-    private static void SeedData(ModelBuilder modelBuilder)
-    {
-        var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        // Business Types
-        modelBuilder.Entity<BusinessType>().HasData(
-            new BusinessType { Id = 1, Name = "Viabilidade Técnica", Description = "Estudo de viabilidade para empreendimentos", CreatedAt = seedDate },
-            new BusinessType { Id = 2, Name = "Laudo Geotécnico", Description = "Laudos de sondagem e fundações", CreatedAt = seedDate },
-            new BusinessType { Id = 3, Name = "Projeto Executivo", Description = "Projetos executivos completos", CreatedAt = seedDate },
-            new BusinessType { Id = 4, Name = "Avaliação Imobiliária", Description = "Avaliações NBR 14.653", CreatedAt = seedDate },
-            new BusinessType { Id = 5, Name = "Consultoria Urbanística", Description = "LOT, parâmetros, código de obras", CreatedAt = seedDate }
-        );
-
-        // Pipeline: Atendimento Inicial
-        modelBuilder.Entity<Pipeline>().HasData(
-            new Pipeline { Id = 1, Name = "Atendimento Inicial", Order = 0, CreatedAt = seedDate },
-            new Pipeline { Id = 2, Name = "Consultoria & Captação", Order = 1, CreatedAt = seedDate }
-        );
-
-        modelBuilder.Entity<PipelineStage>().HasData(
-            new PipelineStage { Id = 1, PipelineId = 1, Name = "Contato inicial", Order = 0, CreatedAt = seedDate },
-            new PipelineStage { Id = 2, PipelineId = 1, Name = "Envio de proposta", Order = 1, CreatedAt = seedDate },
-            new PipelineStage { Id = 3, PipelineId = 1, Name = "Follow-up", Order = 2, CreatedAt = seedDate },
-            new PipelineStage { Id = 4, PipelineId = 1, Name = "Negociação", Order = 3, CreatedAt = seedDate },
-            new PipelineStage { Id = 5, PipelineId = 1, Name = "Fechamento", Order = 4, CreatedAt = seedDate },
-            new PipelineStage { Id = 6, PipelineId = 2, Name = "Consulta inicial", Order = 0, CreatedAt = seedDate },
-            new PipelineStage { Id = 7, PipelineId = 2, Name = "Análise técnica", Order = 1, CreatedAt = seedDate },
-            new PipelineStage { Id = 8, PipelineId = 2, Name = "Entrega", Order = 2, CreatedAt = seedDate }
-        );
-
-        // Deals
-        modelBuilder.Entity<Deal>().HasData(
-            new Deal { Id = 1, Title = "Incorporadora Della Giustina", ClientId = 2, Value = 45000, PipelineId = 1, StageId = 2, ResponsibleId = 1, Date = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), Probability = 70, DealStatus = "Ativo", BusinessTypeId = 1, Registro = "R-45.231", InscricaoImob = "0115025001", EndEmpreendimento = "Rua das Palmeiras, 450 - Glória, Joinville/SC", CreatedAt = seedDate },
-            new Deal { Id = 2, Title = "Engecorps Construções", ClientId = 4, Value = 18000, PipelineId = 1, StageId = 4, ResponsibleId = 1, Date = new DateTime(2026, 2, 28, 0, 0, 0, DateTimeKind.Utc), Probability = 85, DealStatus = "Ativo", BusinessTypeId = 2, EndEmpreendimento = "Rod. SC-301, Km 12 - Distrito Industrial, Joinville/SC", CreatedAt = seedDate },
-            new Deal { Id = 3, Title = "Construtora Horizonte", ClientId = 1, Value = 32000, PipelineId = 1, StageId = 1, ResponsibleId = 1, Date = new DateTime(2026, 3, 5, 0, 0, 0, DateTimeKind.Utc), Probability = 40, DealStatus = "Ativo", BusinessTypeId = 5, CreatedAt = seedDate }
-        );
-
-        // Quote
-        modelBuilder.Entity<Quote>().HasData(
-            new Quote { Id = 1, Numero = "ORC-001", DealId = 1, Titulo = "Viabilidade - Veneto", ClientId = 2, ItemsJson = "[{\"serviceId\":1,\"qty\":1,\"unitPrice\":12000,\"discount\":0}]", Valor = 12000, Status = "Enviado", Data = new DateTime(2026, 3, 1, 0, 0, 0, DateTimeKind.Utc), Validade = new DateTime(2026, 3, 31, 0, 0, 0, DateTimeKind.Utc), Conditions = "3x", CreatedAt = seedDate }
-        );
     }
 }
