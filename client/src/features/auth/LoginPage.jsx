@@ -2,6 +2,23 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuthStore from '../../hooks/useAuthStore';
 
+const demoAccounts = [
+  {
+    initials: 'GG',
+    name: 'Giovanio Gonçalves',
+    role: 'Operador Master',
+    email: 'giovanio@egconsultorias.com.br',
+    password: 'admin123',
+  },
+  {
+    initials: 'CS',
+    name: 'Carlos Silva',
+    role: 'Colaborador',
+    email: 'carlos@egconsultorias.com.br',
+    password: 'user123',
+  },
+];
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,6 +28,13 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const success = await login(email, password);
+    if (success) navigate('/');
+  };
+
+  const handleQuickLogin = async (account) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    const success = await login(account.email, account.password);
     if (success) navigate('/');
   };
 
@@ -28,6 +52,48 @@ export default function LoginPage() {
           <p className="text-erplus-text-muted text-sm">
             EG Projetos & Consultorias
           </p>
+        </div>
+
+        {/* Quick access (demo) */}
+        <div className="mb-6">
+          <p className="text-[11px] font-bold text-erplus-text-muted uppercase tracking-wider mb-3">
+            Acesso rápido (modo demo)
+          </p>
+          <div className="space-y-2">
+            {demoAccounts.map((acc) => (
+              <button
+                key={acc.email}
+                type="button"
+                onClick={() => handleQuickLogin(acc)}
+                disabled={loading}
+                className="w-full flex items-center gap-3 p-3 border border-erplus-border rounded-lg hover:border-erplus-accent hover:bg-erplus-accent-light/40 transition text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="w-10 h-10 shrink-0 rounded-lg bg-erplus-accent text-white flex items-center justify-center font-bold text-sm">
+                  {acc.initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold text-erplus-text truncate">
+                    {acc.name}
+                  </div>
+                  <div className="text-xs text-erplus-text-muted truncate">
+                    {acc.role} · {acc.email}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="relative my-6">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-erplus-border"></div>
+          </div>
+          <div className="relative flex justify-center">
+            <span className="bg-white px-3 text-[11px] text-erplus-text-muted uppercase tracking-wider">
+              ou entre com e-mail e senha
+            </span>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
