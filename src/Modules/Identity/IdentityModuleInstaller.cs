@@ -1,4 +1,5 @@
 using ERPlus.Modules.Identity.Application.Services;
+using ERPlus.Modules.Identity.Domain.Entities;
 using ERPlus.Modules.Identity.Endpoints;
 using ERPlus.Modules.Identity.Infrastructure;
 using ERPlus.Modules.Identity.Infrastructure.Data;
@@ -37,5 +38,33 @@ public class IdentityModuleInstaller : IModuleInstaller
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         db.Database.Migrate();
+
+        if (!db.Users.IgnoreQueryFilters().Any())
+        {
+            var now = DateTime.UtcNow;
+            db.Users.AddRange(
+                new User
+                {
+                    Name = "Giovanio Gonçalves",
+                    Email = "giovanio@egconsultorias.com.br",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                    Role = "Operador Master",
+                    Initials = "GG",
+                    IsActive = true,
+                    CreatedAt = now
+                },
+                new User
+                {
+                    Name = "Carlos Silva",
+                    Email = "carlos@egconsultorias.com.br",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("user123"),
+                    Role = "Colaborador",
+                    Initials = "CS",
+                    IsActive = true,
+                    CreatedAt = now
+                }
+            );
+            db.SaveChanges();
+        }
     }
 }

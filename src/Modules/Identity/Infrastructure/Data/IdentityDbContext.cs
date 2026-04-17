@@ -55,32 +55,8 @@ public class IdentityDbContext : DbContext
     {
         var seedDate = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        // Pre-computed BCrypt hashes (deterministic for migrations)
-        // admin123 → $2a$11$... | user123 → $2a$11$...
-        modelBuilder.Entity<User>().HasData(
-            new User
-            {
-                Id = 1,
-                Name = "Giovanio Gonçalves",
-                Email = "giovanio@egconsultorias.com.br",
-                PasswordHash = "$2a$11$K8xGz1YKlO5qMfVdQ3rYxeVJ7nYR6Z4G5fE8hD2bL0cN9wA1mX3Fy",
-                Role = "Operador Master",
-                Initials = "GG",
-                IsActive = true,
-                CreatedAt = seedDate
-            },
-            new User
-            {
-                Id = 2,
-                Name = "Carlos Silva",
-                Email = "carlos@egconsultorias.com.br",
-                PasswordHash = "$2a$11$R3mN7pL2xK9vQ5wJ8sY1duF6hG4cB0eA3tI7nO9zX2lW5kD8jP6Uw",
-                Role = "Colaborador",
-                Initials = "CS",
-                IsActive = true,
-                CreatedAt = seedDate
-            }
-        );
+        // Users are seeded at runtime by IdentityModuleInstaller so BCrypt hashes
+        // are generated dynamically and match the documented admin123/user123 passwords.
 
         // Seed permissions matching the artifact's initPermissions
         var resources = new[] { "dashboard", "agenda", "contatos", "financeiro", "comercial",
