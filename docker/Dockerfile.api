@@ -1,11 +1,13 @@
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-preview AS base
 WORKDIR /app
 EXPOSE 8080
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0-preview AS build
 WORKDIR /src
 
 COPY ["ERPlus.sln", "."]
+COPY ["Directory.Build.props", "."]
 COPY ["src/API/ERPlus.API.csproj", "src/API/"]
 COPY ["src/Shared/ERPlus.Shared.csproj", "src/Shared/"]
 COPY ["src/Modules/Identity/ERPlus.Modules.Identity.csproj", "src/Modules/Identity/"]
@@ -21,7 +23,7 @@ COPY ["src/Modules/Automation/ERPlus.Modules.Automation.csproj", "src/Modules/Au
 COPY ["src/Modules/Reports/ERPlus.Modules.Reports.csproj", "src/Modules/Reports/"]
 COPY ["src/Modules/Config/ERPlus.Modules.Config.csproj", "src/Modules/Config/"]
 
-RUN dotnet restore
+RUN dotnet restore src/API/ERPlus.API.csproj
 
 COPY . .
 RUN dotnet publish src/API/ERPlus.API.csproj -c Release -o /app/publish --no-restore

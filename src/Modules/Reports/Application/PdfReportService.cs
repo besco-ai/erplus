@@ -72,7 +72,7 @@ public class PdfReportService
                     col.Item().PaddingTop(16);
 
                     // Funnel
-                    col.Item().Text("Funil comercial").FontSize(13).Bold().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4);
+                    col.Item().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4).Text("Funil comercial").FontSize(13).Bold();
                     col.Item().PaddingTop(8);
 
                     if (d.Funnel.Count > 0)
@@ -106,7 +106,7 @@ public class PdfReportService
                     col.Item().PaddingTop(16);
 
                     // Overdue tasks
-                    col.Item().Text("Tarefas vencidas").FontSize(13).Bold().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4);
+                    col.Item().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4).Text("Tarefas vencidas").FontSize(13).Bold();
                     col.Item().PaddingTop(8);
 
                     if (d.OverdueTasksList.Count == 0)
@@ -142,7 +142,7 @@ public class PdfReportService
                     col.Item().PaddingTop(16);
 
                     // Finance
-                    col.Item().Text("Resumo financeiro").FontSize(13).Bold().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4);
+                    col.Item().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4).Text("Resumo financeiro").FontSize(13).Bold();
                     col.Item().PaddingTop(8);
                     col.Item().Row(row =>
                     {
@@ -164,7 +164,7 @@ public class PdfReportService
                     // Team performance
                     if (d.TeamPerformance.Count > 0)
                     {
-                        col.Item().Text("Performance da equipe").FontSize(13).Bold().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4);
+                        col.Item().BorderBottom(2).BorderColor(Colors.Red.Medium).PaddingBottom(4).Text("Performance da equipe").FontSize(13).Bold();
                         col.Item().PaddingTop(8);
 
                         col.Item().Table(table =>
