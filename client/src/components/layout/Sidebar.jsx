@@ -27,6 +27,7 @@ const menuSections = [
     title: 'Administrativo',
     icon: Briefcase,
     items: [
+      { id: 'administrativo-dashboard', label: 'Dashboard', path: '/administrativo' },
       { id: 'financeiro', label: 'Financeiro', path: '/financeiro' },
       { id: 'equipe', label: 'Equipe', path: '/equipe' },
     ],
@@ -35,6 +36,7 @@ const menuSections = [
     title: 'Comercial',
     icon: TrendingUp,
     items: [
+      { id: 'comercial-dashboard', label: 'Dashboard', path: '/comercial/dashboard' },
       { id: 'pipeline', label: 'Pipeline', path: '/comercial' },
       { id: 'orcamentos', label: 'Orçamentos', path: '/orcamentos' },
       { id: 'contratos', label: 'Contratos', path: '/contratos' },
@@ -59,7 +61,10 @@ const menuSections = [
   {
     title: 'Suporte',
     icon: HelpCircle,
-    items: [{ id: 'tickets', label: 'Tickets', path: '/suporte' }],
+    items: [
+      { id: 'suporte-dashboard', label: 'Dashboard', path: '/suporte/dashboard' },
+      { id: 'tickets', label: 'Tickets', path: '/suporte' },
+    ],
   },
 ];
 

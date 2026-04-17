@@ -18,8 +18,11 @@ import ProductionCategoryPage from './features/production/ProductionCategoryPage
 import ConfigPage from './features/config/ConfigPage';
 import AtasPage from './features/documents/AtasPage';
 import SupportPage from './features/support/SupportPage';
+import SuporteDashboardPage from './features/support/SuporteDashboardPage';
 import HelpPage from './features/support/HelpPage';
 import DashboardPage from './features/dashboard/DashboardPage';
+import ComercialDashboardPage from './features/commercial/ComercialDashboardPage';
+import AdministrativoDashboardPage from './features/finance/AdministrativoDashboardPage';
 
 // Categorias de Produção espelhando o campo ProductionItemType.Categoria do backend.
 // Usado pelas 8 rotas dedicadas /producao/{slug}.
@@ -57,10 +60,12 @@ export default function App() {
         <Route path="tarefas" element={<TasksPage />} />
 
         {/* Administrativo */}
+        <Route path="administrativo" element={<AdministrativoDashboardPage />} />
         <Route path="financeiro" element={<FinancePage />} />
         <Route path="equipe" element={<TeamPage />} />
 
         {/* Comercial */}
+        <Route path="comercial/dashboard" element={<ComercialDashboardPage />} />
         <Route path="comercial" element={<PipelinePage />} />
         <Route path="orcamentos" element={<QuotesPage />} />
         <Route path="contratos" element={<ContractsPage />} />
@@ -77,6 +82,7 @@ export default function App() {
         ))}
 
         {/* Suporte */}
+        <Route path="suporte/dashboard" element={<SuporteDashboardPage />} />
         <Route path="suporte" element={<SupportPage />} />
 
         {/* Fixos */}
