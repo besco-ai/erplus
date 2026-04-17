@@ -362,31 +362,122 @@ function UsersTab() {
 
 function AutomationsTab() {
   const [items, setItems] = useState([]);
+  const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await api.get('/automation/rules');
-        setItems(r.data);
-      } catch { setItems([]); } finally { setLoading(false); }
-    })();
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/automation/rules');
+      setItems(r.data);
+    } catch { setItems([]); } finally { setLoading(false); }
   }, []);
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const remove = async (id) => {
+    if (!confirm('Excluir esta automação?')) return;
+    await api.delete(`/automation/rules/${id}`);
+    fetch();
+  };
+
+  const save = async (form) => {
+    const payload = {
+      ...form,
+      active: form.active === 'true' || form.active === true,
+      triggerStageId: form.triggerStageId ? Number(form.triggerStageId) : null,
+      triggerPipelineId: form.triggerPipelineId ? Number(form.triggerPipelineId) : null,
+      actionStageId: form.actionStageId ? Number(form.actionStageId) : null,
+      actionPipelineId: form.actionPipelineId ? Number(form.actionPipelineId) : null,
+    };
+    if (modal && modal !== 'new') await api.put(`/automation/rules/${modal.id}`, payload);
+    else await api.post('/automation/rules', payload);
+    fetch();
+  };
 
   return (
     <>
       <div className="flex items-center justify-between mb-4">
-        <p className="text-sm text-gray-500">Regras de automação (motor de execução programado para Sprint 4)</p>
+        <p className="text-sm text-gray-500">
+          Regras executadas automaticamente pelo motor quando um negócio muda de etapa.
+        </p>
+        <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700">
+          <Plus size={16} /> Nova Automação
+        </button>
       </div>
-      {loading ? <div className="text-center py-12 text-gray-400">Carregando...</div> : (
-        <SimpleList
-          items={items}
-          columns={[
-            { key: 'name', label: 'Nome' },
-            { key: 'trigger', label: 'Gatilho', fallback: '—' },
-            { key: 'action', label: 'Ação', fallback: '—' },
-            { key: 'active', label: 'Ativo', render: (v) => v ? 'Sim' : 'Não' },
+      {loading ? <div className="text-center py-12 text-gray-400">Carregando...</div> : items.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-400 text-sm">
+          Nenhuma automação cadastrada
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/80 border-b border-gray-100">
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Nome</th>
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Gatilho</th>
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Ação</th>
+                <th className="text-center px-5 py-3 text-xs font-bold text-gray-500 uppercase">Ativo</th>
+                <th className="text-right px-5 py-3 text-xs font-bold text-gray-500 uppercase">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((r) => (
+                <tr key={r.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                  <td className="px-5 py-3 text-sm font-semibold">{r.name}</td>
+                  <td className="px-5 py-3 text-xs text-gray-600">
+                    {r.trigger}
+                    {r.triggerStageId && <span className="text-gray-400"> · stage #{r.triggerStageId}</span>}
+                    {r.triggerPipelineId && <span className="text-gray-400"> · pipeline #{r.triggerPipelineId}</span>}
+                  </td>
+                  <td className="px-5 py-3 text-xs text-gray-600">
+                    {r.action}
+                    {r.taskTitle && <span className="text-gray-400"> · {r.taskTitle}</span>}
+                  </td>
+                  <td className="px-5 py-3 text-center">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${r.active ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-400'}`}>
+                      {r.active ? 'Sim' : 'Não'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setModal(r)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
+                      <button onClick={() => remove(r.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {modal && (
+        <SimpleFormModal
+          title={modal === 'new' ? 'Nova Automação' : 'Editar Automação'}
+          fields={[
+            { key: 'name', label: 'Nome', required: true },
+            { key: 'trigger', label: 'Gatilho', type: 'select', default: 'stage_enter',
+              options: [
+                { value: 'stage_enter', label: 'Deal entra na etapa (stage_enter)' },
+              ] },
+            { key: 'triggerPipelineId', label: 'Pipeline do gatilho (opcional)', type: 'number', placeholder: 'ID do pipeline' },
+            { key: 'triggerStageId', label: 'Etapa do gatilho (opcional)', type: 'number', placeholder: 'ID da etapa' },
+            { key: 'action', label: 'Ação', type: 'select', default: 'create_task',
+              options: [
+                { value: 'create_task', label: 'Criar tarefa' },
+                { value: 'move_pipeline', label: 'Mover para pipeline/etapa' },
+              ] },
+            { key: 'taskTitle', label: 'Título da tarefa (se ação = create_task)' },
+            { key: 'actionPipelineId', label: 'Pipeline destino (se move_pipeline)', type: 'number' },
+            { key: 'actionStageId', label: 'Etapa destino (se move_pipeline)', type: 'number' },
+            { key: 'active', label: 'Ativa', type: 'select', default: 'true',
+              options: [{ value: 'true', label: 'Sim' }, { value: 'false', label: 'Não' }] },
           ]}
-          emptyLabel="Nenhuma automação cadastrada"
+          initial={modal === 'new' ? null : {
+            ...modal,
+            active: modal.active ? 'true' : 'false',
+          }}
+          onClose={() => setModal(null)}
+          onSubmit={save}
         />
       )}
     </>
@@ -403,11 +494,116 @@ function EmpresaTab() {
 }
 
 function TemplatesTab() {
+  const [items, setItems] = useState([]);
+  const [modal, setModal] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const q = filter ? `?tipo=${filter}` : '';
+      const r = await api.get(`/documents/templates${q}`);
+      setItems(r.data);
+    } catch { setItems([]); } finally { setLoading(false); }
+  }, [filter]);
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const remove = async (id) => {
+    if (!confirm('Excluir este template?')) return;
+    await api.delete(`/documents/templates/${id}`);
+    fetch();
+  };
+
+  const save = async (form) => {
+    const payload = {
+      name: form.name,
+      tipo: form.tipo,
+      corpo: form.corpo,
+      observacoes: form.observacoes || null,
+    };
+    if (modal && modal !== 'new') await api.put(`/documents/templates/${modal.id}`, payload);
+    else await api.post('/documents/templates', payload);
+    fetch();
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-sm p-10 text-center">
-      <div className="text-sm text-gray-400 mb-2">Templates de orçamentos e contratos com placeholders</div>
-      <div className="text-xs text-gray-300">Em breve (Sprint 4)</div>
-    </div>
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">
+          Modelos reutilizáveis para orçamentos e contratos. Use <code className="bg-gray-100 px-1 rounded">{'{{campo}}'}</code> para variáveis.
+        </p>
+        <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700">
+          <Plus size={16} /> Novo Template
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 mb-3">
+        <span className="text-xs font-semibold text-gray-500 uppercase">Filtrar:</span>
+        {['', 'orcamento', 'contrato'].map((f) => (
+          <button
+            key={f || 'all'}
+            onClick={() => setFilter(f)}
+            className={`text-xs px-3 py-1.5 rounded-full font-medium transition ${filter === f ? 'bg-erplus-accent text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            {f === '' ? 'Todos' : f === 'orcamento' ? 'Orçamentos' : 'Contratos'}
+          </button>
+        ))}
+      </div>
+
+      {loading ? <div className="text-center py-12 text-gray-400">Carregando...</div> : items.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-400 text-sm">
+          Nenhum template cadastrado
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/80 border-b border-gray-100">
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Nome</th>
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Tipo</th>
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Observações</th>
+                <th className="text-right px-5 py-3 text-xs font-bold text-gray-500 uppercase">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((t) => (
+                <tr key={t.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                  <td className="px-5 py-3 text-sm font-semibold">{t.name}</td>
+                  <td className="px-5 py-3">
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.tipo === 'orcamento' ? 'bg-blue-50 text-blue-600' : 'bg-purple-50 text-purple-600'}`}>
+                      {t.tipo === 'orcamento' ? 'Orçamento' : 'Contrato'}
+                    </span>
+                  </td>
+                  <td className="px-5 py-3 text-xs text-gray-500 truncate max-w-xs">{t.observacoes || '—'}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setModal(t)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
+                      <button onClick={() => remove(t.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {modal && (
+        <SimpleFormModal
+          title={modal === 'new' ? 'Novo Template' : 'Editar Template'}
+          fields={[
+            { key: 'name', label: 'Nome', required: true },
+            { key: 'tipo', label: 'Tipo', type: 'select', default: 'orcamento',
+              options: [{ value: 'orcamento', label: 'Orçamento' }, { value: 'contrato', label: 'Contrato' }] },
+            { key: 'corpo', label: 'Corpo (suporta {{placeholders}})', type: 'textarea' },
+            { key: 'observacoes', label: 'Observações', type: 'textarea' },
+          ]}
+          initial={modal === 'new' ? null : modal}
+          onClose={() => setModal(null)}
+          onSubmit={save}
+        />
+      )}
+    </>
   );
 }
 

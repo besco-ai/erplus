@@ -1,3 +1,4 @@
+using ERPlus.Modules.Automation.Infrastructure.Data;
 using ERPlus.Modules.Commercial.Domain.Entities;
 using ERPlus.Modules.Commercial.Infrastructure.Data;
 using ERPlus.Modules.Projects.Domain.Entities;
@@ -15,12 +16,18 @@ public class DealService
     private readonly CommercialDbContext _db;
     private readonly ProjectsDbContext _projects;
     private readonly TasksDbContext _tasks;
+    private readonly AutomationDbContext _automation;
 
-    public DealService(CommercialDbContext db, ProjectsDbContext projects, TasksDbContext tasks)
+    public DealService(
+        CommercialDbContext db,
+        ProjectsDbContext projects,
+        TasksDbContext tasks,
+        AutomationDbContext automation)
     {
         _db = db;
         _projects = projects;
         _tasks = tasks;
+        _automation = automation;
     }
 
     public async Task<Result<List<DealDto>>> GetAllAsync(int? pipelineId, int? stageId, string? status, int? responsibleId)
@@ -171,6 +178,11 @@ public class DealService
         // correspondentes para este deal, atribuídas ao responsável do deal.
         await CreateAutoTasksForStageAsync(deal, stage);
 
+        // Automation engine: dispara regras com trigger stage_enter compatíveis
+        // com este stage (e/ou pipeline). Cada regra executa uma ação simples
+        // (create_task, move_pipeline).
+        await RunAutomationsAsync(deal, "stage_enter", stage);
+
         return Result<bool>.Success(true);
     }
 
@@ -291,6 +303,73 @@ public class DealService
             Text = text,
             CreatedAt = DateTime.UtcNow
         });
+    }
+
+    /// <summary>
+    /// Executa as regras de automação configuradas e compatíveis com o evento.
+    /// Filtra por trigger e (quando especificado) TriggerStageId/TriggerPipelineId,
+    /// e só executa regras ativas. Cada ação falha é silenciosamente ignorada
+    /// para não derrubar a operação principal do deal.
+    /// </summary>
+    private async Task RunAutomationsAsync(Deal deal, string trigger, PipelineStage? stage)
+    {
+        var rules = await _automation.Rules
+            .Where(r => r.Active && r.Trigger == trigger)
+            .ToListAsync();
+
+        foreach (var rule in rules)
+        {
+            // Filtro por etapa/pipeline quando a regra especifica
+            if (rule.TriggerStageId.HasValue && (stage?.Id ?? 0) != rule.TriggerStageId.Value) continue;
+            if (rule.TriggerPipelineId.HasValue && deal.PipelineId != rule.TriggerPipelineId.Value) continue;
+
+            try
+            {
+                await ExecuteRuleActionAsync(rule, deal);
+                AddTimeline(deal.Id, "automation",
+                    $"Automação \"{rule.Name}\" executada ({rule.Action})");
+            }
+            catch
+            {
+                // Swallow — uma regra mal configurada não deve falhar o move.
+            }
+        }
+        await _db.SaveChangesAsync();
+    }
+
+    private async Task ExecuteRuleActionAsync(
+        Automation.Domain.Entities.AutomationRule rule, Deal deal)
+    {
+        switch (rule.Action)
+        {
+            case "create_task":
+                if (!string.IsNullOrWhiteSpace(rule.TaskTitle))
+                {
+                    _tasks.Tasks.Add(new TaskItem
+                    {
+                        Title = rule.TaskTitle,
+                        DealId = deal.Id,
+                        ResponsibleId = deal.ResponsibleId,
+                        Status = "Não iniciado",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                    await _tasks.SaveChangesAsync();
+                }
+                break;
+
+            case "move_pipeline":
+                if (rule.ActionPipelineId.HasValue && rule.ActionStageId.HasValue)
+                {
+                    deal.PipelineId = rule.ActionPipelineId.Value;
+                    deal.StageId = rule.ActionStageId.Value;
+                    deal.UpdatedAt = DateTime.UtcNow;
+                }
+                break;
+
+            // Outras ações (load_diligence etc) podem ser adicionadas aqui.
+            default:
+                break;
+        }
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)

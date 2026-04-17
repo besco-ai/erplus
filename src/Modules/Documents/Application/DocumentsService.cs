@@ -10,6 +10,7 @@ public record AttachmentDto(int Id, string EntityType, int EntityId, string Labe
 public record CreateAttachmentRequest(string EntityType, int EntityId, string Label, string Url);
 public record TemplateDto(int Id, string Name, string Tipo, string Corpo, string? Observacoes);
 public record CreateTemplateRequest(string Name, string Tipo, string Corpo, string? Observacoes);
+public record UpdateTemplateRequest(string? Name, string? Tipo, string? Corpo, string? Observacoes);
 public record TimelineEntryDto(int Id, int? DealId, int? ProjectId, DateTime Date, string Type, string Text);
 public record CreateTimelineRequest(int? DealId, int? ProjectId, string Type, string Text);
 
@@ -66,6 +67,28 @@ public class DocumentsService
         _db.Templates.Add(t);
         await _db.SaveChangesAsync();
         return Result<TemplateDto>.Created(new TemplateDto(t.Id, t.Name, t.Tipo, t.Corpo, t.Observacoes));
+    }
+
+    public async Task<Result<TemplateDto>> UpdateTemplateAsync(int id, UpdateTemplateRequest r)
+    {
+        var t = await _db.Templates.FindAsync(id);
+        if (t is null) return Result<TemplateDto>.NotFound();
+        if (r.Name is not null) t.Name = r.Name.Trim();
+        if (r.Tipo is not null) t.Tipo = r.Tipo;
+        if (r.Corpo is not null) t.Corpo = r.Corpo;
+        if (r.Observacoes is not null) t.Observacoes = r.Observacoes;
+        t.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<TemplateDto>.Success(new TemplateDto(t.Id, t.Name, t.Tipo, t.Corpo, t.Observacoes));
+    }
+
+    public async Task<Result<bool>> DeleteTemplateAsync(int id)
+    {
+        var t = await _db.Templates.FindAsync(id);
+        if (t is null) return Result<bool>.NotFound();
+        _db.Templates.Remove(t);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 
     // Timeline

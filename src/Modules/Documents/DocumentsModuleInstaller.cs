@@ -42,6 +42,18 @@ public class DocumentsModuleInstaller : IModuleInstaller
         {
             var r = await svc.CreateTemplateAsync(req); return r.IsSuccess ? Results.Created("", r.Data) : Results.BadRequest(new { error = r.Error });
         });
+        group.MapPut("/templates/{id:int}", async (int id, UpdateTemplateRequest req, DocumentsService svc) =>
+        {
+            var r = await svc.UpdateTemplateAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data)
+                : r.StatusCode == 404 ? Results.NotFound()
+                : Results.BadRequest(new { error = r.Error });
+        });
+        group.MapDelete("/templates/{id:int}", async (int id, DocumentsService svc) =>
+        {
+            var r = await svc.DeleteTemplateAsync(id);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
+        });
 
         group.MapGet("/timeline", async (int? dealId, int? projectId, DocumentsService svc) =>
             Results.Ok((await svc.GetTimelineAsync(dealId, projectId)).Data));
