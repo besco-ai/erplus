@@ -155,12 +155,42 @@ public class FinanceService
     {
         var item = await _db.AccountsReceivable.FindAsync(id);
         if (item is null) return Result<bool>.NotFound();
+
+        var wasReceived = item.Status == "Recebido";
+
         if (r.Descricao is not null) item.Descricao = r.Descricao.Trim();
         if (r.Valor.HasValue) item.Valor = r.Valor.Value;
-        if (r.Vencimento.HasValue) item.Vencimento = r.Vencimento.Value;
+        if (r.Vencimento.HasValue)
+            item.Vencimento = DateTime.SpecifyKind(r.Vencimento.Value.ToUniversalTime(), DateTimeKind.Utc);
         if (r.Status is not null) item.Status = r.Status;
         if (r.Observacoes is not null) item.Observacoes = r.Observacoes;
         item.UpdatedAt = DateTime.UtcNow;
+
+        // Cascata: quando um A/R transita para "Recebido", grava um lançamento
+        // financeiro de receita já Efetuado espelhando a conta. Usa a primeira
+        // conta bancária disponível como padrão (o campo AccountId do FinancialEntry
+        // é obrigatório; o usuário pode editar depois na tela de lançamentos).
+        var nowReceived = item.Status == "Recebido";
+        if (!wasReceived && nowReceived)
+        {
+            var defaultAccount = await _db.BankAccounts.OrderBy(a => a.Id).FirstOrDefaultAsync();
+            if (defaultAccount is not null)
+            {
+                _db.Entries.Add(new FinancialEntry
+                {
+                    Type = "receita",
+                    Date = DateTime.UtcNow,
+                    Description = item.Descricao,
+                    ClientId = item.ClientId,
+                    CostCenterId = item.CostCenterId,
+                    AccountId = defaultAccount.Id,
+                    Value = item.Valor,
+                    Status = "Efetuado",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+        }
+
         await _db.SaveChangesAsync();
         return Result<bool>.Success(true);
     }

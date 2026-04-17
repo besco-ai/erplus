@@ -2,6 +2,19 @@ using ERPlus.Shared.Domain;
 
 namespace ERPlus.Modules.Commercial.Domain.Entities;
 
+/// <summary>
+/// Histórico cronológico de eventos de um negócio (mudança de etapa, ganho/
+/// perdido, criação de orçamento/contrato, tarefa criada, etc.). Populado
+/// automaticamente pelos serviços que modificam o Deal.
+/// </summary>
+public class DealTimelineEntry : BaseEntity
+{
+    public int DealId { get; set; }
+    public DateTime Date { get; set; }
+    public string Type { get; set; } = string.Empty;  // stage, task, quote, contract, won, lost, briefing, diligence
+    public string Text { get; set; } = string.Empty;
+}
+
 public class Deal : BaseEntity
 {
     public string Title { get; set; } = string.Empty;

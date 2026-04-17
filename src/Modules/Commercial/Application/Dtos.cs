@@ -80,3 +80,6 @@ public record CreateBusinessTypeRequest(string Name, string? Description);
 // ── Templates ──
 public record DiligenceTemplateDto(int Id, string Name, int? BusinessTypeId, string? ItemsJson);
 public record BriefingTemplateDto(int Id, string Name, string? ItemsJson);
+
+// ── Timeline (histórico de eventos do deal) ──
+public record DealTimelineEntryDto(int Id, int DealId, DateTime Date, string Type, string Text);

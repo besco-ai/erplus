@@ -8,6 +8,7 @@ namespace ERPlus.Modules.Commercial.Application.Services;
 public class QuoteService
 {
     private readonly CommercialDbContext _db;
+    private const int RevertWindowHours = 24;
 
     public QuoteService(CommercialDbContext db) => _db = db;
 
@@ -47,6 +48,14 @@ public class QuoteService
         };
 
         _db.Quotes.Add(quote);
+        _db.DealTimeline.Add(new DealTimelineEntry
+        {
+            DealId = r.DealId,
+            Date = DateTime.UtcNow,
+            Type = "quote",
+            Text = $"Orçamento {numero} criado",
+            CreatedAt = DateTime.UtcNow
+        });
         await _db.SaveChangesAsync();
 
         return Result<QuoteDto>.Created(new QuoteDto(
@@ -65,6 +74,21 @@ public class QuoteService
             return Result<QuoteDto>.Failure("Status inválido");
 
         var oldStatus = quote.Status;
+
+        // Janela de reversão de 24h: uma vez Aprovado ou Recusado, o status só
+        // pode ser alterado dentro das próximas 24h após o último StatusChangedAt.
+        // Depois disso, o orçamento é considerado fechado e não é mais editável.
+        var isTerminalStatus = oldStatus == "Aprovado" || oldStatus == "Recusado";
+        if (isTerminalStatus && r.Status != oldStatus && quote.StatusChangedAt.HasValue)
+        {
+            var hoursSince = (DateTime.UtcNow - quote.StatusChangedAt.Value).TotalHours;
+            if (hoursSince > RevertWindowHours)
+            {
+                return Result<QuoteDto>.Failure(
+                    $"Orçamento {oldStatus.ToLower()} há mais de {RevertWindowHours}h não pode mais ser revertido.");
+            }
+        }
+
         quote.Status = r.Status;
         quote.StatusChangedAt = DateTime.UtcNow;
         quote.UpdatedAt = DateTime.UtcNow;
@@ -91,6 +115,13 @@ public class QuoteService
                 EndEmpreendimento = deal?.EndEmpreendimento,
                 BusinessTypeId = deal?.BusinessTypeId
             });
+
+            _db.DealTimeline.Add(new DealTimelineEntry
+            {
+                DealId = quote.DealId, Date = DateTime.UtcNow, Type = "contract",
+                Text = $"Contrato criado a partir de {quote.Numero} aprovado",
+                CreatedAt = DateTime.UtcNow
+            });
         }
 
         // If reverting from approved, remove associated contract
@@ -99,6 +130,13 @@ public class QuoteService
             var contract = await _db.Contracts.FirstOrDefaultAsync(c => c.QuoteId == id);
             if (contract is not null) _db.Contracts.Remove(contract);
         }
+
+        _db.DealTimeline.Add(new DealTimelineEntry
+        {
+            DealId = quote.DealId, Date = DateTime.UtcNow, Type = "quote",
+            Text = $"{quote.Numero} passou de \"{oldStatus}\" para \"{r.Status}\"",
+            CreatedAt = DateTime.UtcNow
+        });
 
         await _db.SaveChangesAsync();
 

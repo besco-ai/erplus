@@ -1,15 +1,27 @@
 using ERPlus.Modules.Commercial.Domain.Entities;
 using ERPlus.Modules.Commercial.Infrastructure.Data;
+using ERPlus.Modules.Projects.Domain.Entities;
+using ERPlus.Modules.Projects.Infrastructure.Data;
+using ERPlus.Modules.Tasks.Domain.Entities;
+using ERPlus.Modules.Tasks.Infrastructure.Data;
 using ERPlus.Shared.Application;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace ERPlus.Modules.Commercial.Application.Services;
 
 public class DealService
 {
     private readonly CommercialDbContext _db;
+    private readonly ProjectsDbContext _projects;
+    private readonly TasksDbContext _tasks;
 
-    public DealService(CommercialDbContext db) => _db = db;
+    public DealService(CommercialDbContext db, ProjectsDbContext projects, TasksDbContext tasks)
+    {
+        _db = db;
+        _projects = projects;
+        _tasks = tasks;
+    }
 
     public async Task<Result<List<DealDto>>> GetAllAsync(int? pipelineId, int? stageId, string? status, int? responsibleId)
     {
@@ -144,24 +156,106 @@ public class DealService
         var stage = await _db.PipelineStages.FindAsync(r.StageId);
         if (stage is null) return Result<bool>.Failure("Etapa não encontrada");
 
+        var oldStageId = deal.StageId;
         deal.StageId = r.StageId;
         if (r.PipelineId.HasValue) deal.PipelineId = r.PipelineId.Value;
         deal.UpdatedAt = DateTime.UtcNow;
+
+        if (oldStageId != r.StageId)
+        {
+            AddTimeline(deal.Id, "stage", $"Movido para etapa \"{stage.Name}\"");
+        }
         await _db.SaveChangesAsync();
+
+        // Cascata: se a etapa de destino tem AutoTasksJson, criar as tarefas
+        // correspondentes para este deal, atribuídas ao responsável do deal.
+        await CreateAutoTasksForStageAsync(deal, stage);
 
         return Result<bool>.Success(true);
     }
 
     public async Task<Result<bool>> WinAsync(int id)
     {
-        var deal = await _db.Deals.FindAsync(id);
+        var deal = await _db.Deals.Include(d => d.Pipeline).Include(d => d.Stage)
+            .FirstOrDefaultAsync(d => d.Id == id);
         if (deal is null) return Result<bool>.NotFound();
 
         deal.DealStatus = "Ganho";
         deal.UpdatedAt = DateTime.UtcNow;
+        AddTimeline(deal.Id, "won", "Negócio marcado como ganho");
         await _db.SaveChangesAsync();
 
+        // Cascata: criar Empreendimento (Project) no primeiro stage do primeiro
+        // pipeline de Projects. Se ainda não há pipeline de projects cadastrado,
+        // a cascata é silenciosamente pulada — o deal continua "Ganho", só não
+        // gera o empreendimento automaticamente.
+        await CreateProjectFromDealAsync(deal);
+
         return Result<bool>.Success(true);
+    }
+
+    // ── Cascatas ──
+
+    private async Task CreateProjectFromDealAsync(Deal deal)
+    {
+        var pipeline = await _projects.Pipelines
+            .OrderBy(p => p.Order)
+            .FirstOrDefaultAsync();
+        if (pipeline is null) return;
+
+        var firstStage = await _projects.Stages
+            .Where(s => s.PipelineId == pipeline.Id)
+            .OrderBy(s => s.Order)
+            .FirstOrDefaultAsync();
+        if (firstStage is null) return;
+
+        _projects.Projects.Add(new Project
+        {
+            Title = deal.Title,
+            ClientId = deal.ClientId,
+            DealId = deal.Id,
+            PipelineId = pipeline.Id,
+            StageId = firstStage.Id,
+            Value = deal.Value,
+            ResponsibleId = deal.ResponsibleId,
+            StartDate = DateTime.UtcNow,
+            Registro = deal.Registro,
+            InscricaoImob = deal.InscricaoImob,
+            EndEmpreendimento = deal.EndEmpreendimento,
+            BusinessTypeId = deal.BusinessTypeId,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _projects.SaveChangesAsync();
+    }
+
+    private async Task CreateAutoTasksForStageAsync(Deal deal, PipelineStage stage)
+    {
+        if (string.IsNullOrWhiteSpace(stage.AutoTasksJson)) return;
+
+        List<string>? titles;
+        try
+        {
+            titles = JsonSerializer.Deserialize<List<string>>(stage.AutoTasksJson);
+        }
+        catch (JsonException)
+        {
+            return;
+        }
+        if (titles is null || titles.Count == 0) return;
+
+        foreach (var title in titles)
+        {
+            if (string.IsNullOrWhiteSpace(title)) continue;
+            _tasks.Tasks.Add(new TaskItem
+            {
+                Title = title,
+                DealId = deal.Id,
+                ResponsibleId = deal.ResponsibleId,
+                Status = "Não iniciado",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+        await _tasks.SaveChangesAsync();
     }
 
     public async Task<Result<bool>> LoseAsync(int id)
@@ -171,9 +265,32 @@ public class DealService
 
         deal.DealStatus = "Perdido";
         deal.UpdatedAt = DateTime.UtcNow;
+        AddTimeline(deal.Id, "lost", "Negócio marcado como perdido");
         await _db.SaveChangesAsync();
 
         return Result<bool>.Success(true);
+    }
+
+    public async Task<Result<List<DealTimelineEntryDto>>> GetTimelineAsync(int dealId)
+    {
+        var entries = await _db.DealTimeline
+            .Where(t => t.DealId == dealId)
+            .OrderByDescending(t => t.Date)
+            .Select(t => new DealTimelineEntryDto(t.Id, t.DealId, t.Date, t.Type, t.Text))
+            .ToListAsync();
+        return Result<List<DealTimelineEntryDto>>.Success(entries);
+    }
+
+    internal void AddTimeline(int dealId, string type, string text)
+    {
+        _db.DealTimeline.Add(new DealTimelineEntry
+        {
+            DealId = dealId,
+            Date = DateTime.UtcNow,
+            Type = type,
+            Text = text,
+            CreatedAt = DateTime.UtcNow
+        });
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)

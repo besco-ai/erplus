@@ -176,6 +176,12 @@ public class CommercialModuleInstaller : IModuleInstaller
         group.MapGet("/briefing-templates", async (DiligenceService svc) => Results.Ok((await svc.GetBriefingTemplatesAsync()).Data));
 
         // ── Business Types ──
+        group.MapGet("/deals/{id:int}/timeline", async (int id, DealService svc) =>
+        {
+            var r = await svc.GetTimelineAsync(id);
+            return r.IsSuccess ? Results.Ok(r.Data) : Results.NotFound();
+        });
+
         group.MapGet("/business-types", async (CommercialDbContext db) =>
             Results.Ok(await db.BusinessTypes.OrderBy(b => b.Name)
                 .Select(b => new BusinessTypeDto(b.Id, b.Name, b.Description)).ToListAsync()));

@@ -10,5 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\ERPlus.Shared.csproj" />
+    <ProjectReference Include="..\Projects\ERPlus.Modules.Projects.csproj" />
+    <ProjectReference Include="..\Tasks\ERPlus.Modules.Tasks.csproj" />
   </ItemGroup>
 </Project>

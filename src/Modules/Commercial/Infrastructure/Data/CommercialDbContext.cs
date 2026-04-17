@@ -18,6 +18,7 @@ public class CommercialDbContext : DbContext
     public DbSet<BusinessType> BusinessTypes => Set<BusinessType>();
     public DbSet<DiligenceTemplate> DiligenceTemplates => Set<DiligenceTemplate>();
     public DbSet<BriefingTemplate> BriefingTemplates => Set<BriefingTemplate>();
+    public DbSet<DealTimelineEntry> DealTimeline => Set<DealTimelineEntry>();
 
     public CommercialDbContext(DbContextOptions<CommercialDbContext> options) : base(options) { }
 
@@ -116,6 +117,16 @@ public class CommercialDbContext : DbContext
             e.ToTable("briefing_templates");
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
+        });
+
+        modelBuilder.Entity<DealTimelineEntry>(e =>
+        {
+            e.ToTable("deal_timeline");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Type).HasMaxLength(30).IsRequired();
+            e.Property(x => x.Text).HasMaxLength(1000).IsRequired();
+            e.HasIndex(x => x.DealId);
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
     }
 }
