@@ -52,3 +52,21 @@ public record CreateBankAccountRequest(string Name, decimal Balance);
 public record FinanceSummaryDto(
     decimal TotalReceitas, decimal TotalDespesas, decimal Saldo,
     decimal AReceber, decimal APagar, int VencidasCount);
+
+// ── Ordens de Compra ──
+public record PurchaseOrderDto(
+    int Id, string Numero, string Titulo, int? FornecedorId,
+    DateTime Data, DateTime? PrazoEntrega, decimal Valor, string Status,
+    int? CostCenterId, string? CostCenterName, int? ResponsibleId,
+    string? ItemsJson, string? Observacoes, int? AccountPayableId,
+    DateTime CreatedAt);
+
+public record CreatePurchaseOrderRequest(
+    string Titulo, int? FornecedorId, DateTime Data, DateTime? PrazoEntrega,
+    decimal Valor, int? CostCenterId, int? ResponsibleId,
+    string? ItemsJson, string? Observacoes);
+
+public record UpdatePurchaseOrderRequest(
+    string? Titulo, int? FornecedorId, DateTime? Data, DateTime? PrazoEntrega,
+    decimal? Valor, string? Status, int? CostCenterId, int? ResponsibleId,
+    string? ItemsJson, string? Observacoes);

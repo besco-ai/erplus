@@ -12,6 +12,7 @@ public class FinanceDbContext : DbContext
     public DbSet<AccountReceivable> AccountsReceivable => Set<AccountReceivable>();
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
     public DbSet<BankAccount> BankAccounts => Set<BankAccount>();
+    public DbSet<PurchaseOrder> PurchaseOrders => Set<PurchaseOrder>();
 
     public FinanceDbContext(DbContextOptions<FinanceDbContext> options) : base(options) { }
 
@@ -63,6 +64,18 @@ public class FinanceDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.Balance).HasPrecision(18, 2);
+        });
+
+        modelBuilder.Entity<PurchaseOrder>(e =>
+        {
+            e.ToTable("purchase_orders");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Numero).HasMaxLength(20).IsRequired();
+            e.HasIndex(x => x.Numero).IsUnique();
+            e.Property(x => x.Titulo).HasMaxLength(300);
+            e.Property(x => x.Status).HasMaxLength(20);
+            e.Property(x => x.Valor).HasPrecision(18, 2);
+            e.HasQueryFilter(x => !x.IsDeleted);
         });
     }
 }

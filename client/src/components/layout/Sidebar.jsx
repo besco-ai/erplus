@@ -29,6 +29,7 @@ const menuSections = [
     items: [
       { id: 'administrativo-dashboard', label: 'Dashboard', path: '/administrativo' },
       { id: 'financeiro', label: 'Financeiro', path: '/financeiro' },
+      { id: 'cotacoes', label: 'Cotações', path: '/cotacoes' },
     ],
   },
   {

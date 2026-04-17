@@ -55,3 +55,19 @@ public class BankAccount : BaseEntity
     public string Name { get; set; } = string.Empty;
     public decimal Balance { get; set; }
 }
+
+public class PurchaseOrder : BaseEntity
+{
+    public string Numero { get; set; } = string.Empty;  // OC-001
+    public string Titulo { get; set; } = string.Empty;
+    public int? FornecedorId { get; set; }               // FK Contact (contato do tipo fornecedor)
+    public DateTime Data { get; set; }
+    public DateTime? PrazoEntrega { get; set; }
+    public decimal Valor { get; set; }
+    public string Status { get; set; } = "Rascunho";     // Rascunho, Enviada, Aprovada, Recebida, Cancelada
+    public int? CostCenterId { get; set; }
+    public int? ResponsibleId { get; set; }
+    public string? ItemsJson { get; set; }               // [{ descricao, qty, unitPrice }]
+    public string? Observacoes { get; set; }
+    public int? AccountPayableId { get; set; }           // Criado quando a OC vira AP (Sprint 4 cascata)
+}

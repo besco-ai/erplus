@@ -23,6 +23,7 @@ import HelpPage from './features/support/HelpPage';
 import DashboardPage from './features/dashboard/DashboardPage';
 import ComercialDashboardPage from './features/commercial/ComercialDashboardPage';
 import AdministrativoDashboardPage from './features/finance/AdministrativoDashboardPage';
+import OrdemComprasPage from './features/finance/OrdemComprasPage';
 
 // Categorias de Produção espelhando o campo ProductionItemType.Categoria do backend.
 // Usado pelas 8 rotas dedicadas /producao/{slug}.
@@ -62,6 +63,7 @@ export default function App() {
         {/* Administrativo */}
         <Route path="administrativo" element={<AdministrativoDashboardPage />} />
         <Route path="financeiro" element={<FinancePage />} />
+        <Route path="cotacoes" element={<OrdemComprasPage />} />
         <Route path="equipe" element={<TeamPage />} />
 
         {/* Comercial */}

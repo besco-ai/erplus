@@ -22,6 +22,7 @@ public class FinanceModuleInstaller : IModuleInstaller
                 npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", FinanceDbContext.Schema)));
 
         services.AddScoped<FinanceService>();
+        services.AddScoped<PurchaseOrderService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -116,6 +117,38 @@ public class FinanceModuleInstaller : IModuleInstaller
         {
             var r = await svc.CreateBankAccountAsync(req);
             return r.IsSuccess ? Results.Created("", r.Data) : Results.BadRequest(new { error = r.Error });
+        });
+
+        // Purchase Orders (Ordens de Compra / Cotações de compra)
+        group.MapGet("/purchase-orders", async (string? status, PurchaseOrderService svc) =>
+            Results.Ok((await svc.GetAllAsync(status)).Data));
+
+        group.MapGet("/purchase-orders/{id:int}", async (int id, PurchaseOrderService svc) =>
+        {
+            var r = await svc.GetByIdAsync(id);
+            return r.IsSuccess ? Results.Ok(r.Data) : Results.NotFound();
+        });
+
+        group.MapPost("/purchase-orders", async (CreatePurchaseOrderRequest req, PurchaseOrderService svc) =>
+        {
+            var r = await svc.CreateAsync(req);
+            return r.IsSuccess
+                ? Results.Created($"/api/finance/purchase-orders/{r.Data!.Id}", r.Data)
+                : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapPut("/purchase-orders/{id:int}", async (int id, UpdatePurchaseOrderRequest req, PurchaseOrderService svc) =>
+        {
+            var r = await svc.UpdateAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data)
+                : r.StatusCode == 404 ? Results.NotFound()
+                : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapDelete("/purchase-orders/{id:int}", async (int id, PurchaseOrderService svc) =>
+        {
+            var r = await svc.DeleteAsync(id);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
         });
     }
 
