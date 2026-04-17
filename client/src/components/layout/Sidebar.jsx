@@ -29,7 +29,6 @@ const menuSections = [
     items: [
       { id: 'administrativo-dashboard', label: 'Dashboard', path: '/administrativo' },
       { id: 'financeiro', label: 'Financeiro', path: '/financeiro' },
-      { id: 'equipe', label: 'Equipe', path: '/equipe' },
     ],
   },
   {
@@ -37,7 +36,7 @@ const menuSections = [
     icon: TrendingUp,
     items: [
       { id: 'comercial-dashboard', label: 'Dashboard', path: '/comercial/dashboard' },
-      { id: 'pipeline', label: 'Pipeline', path: '/comercial' },
+      { id: 'negociacoes-comercial', label: 'Negociações', path: '/comercial' },
       { id: 'orcamentos', label: 'Orçamentos', path: '/orcamentos' },
       { id: 'contratos', label: 'Contratos', path: '/contratos' },
     ],
@@ -63,7 +62,7 @@ const menuSections = [
     icon: HelpCircle,
     items: [
       { id: 'suporte-dashboard', label: 'Dashboard', path: '/suporte/dashboard' },
-      { id: 'tickets', label: 'Tickets', path: '/suporte' },
+      { id: 'chamados', label: 'Chamados', path: '/suporte' },
     ],
   },
 ];
