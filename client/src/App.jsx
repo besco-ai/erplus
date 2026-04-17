@@ -64,6 +64,8 @@ export default function App() {
         <Route path="administrativo" element={<AdministrativoDashboardPage />} />
         <Route path="financeiro" element={<FinancePage />} />
         <Route path="cotacoes" element={<OrdemComprasPage />} />
+        <Route path="administrativo/producao" element={<ProductionPage />} />
+        <Route path="administrativo/tarefas" element={<TasksPage />} />
         <Route path="equipe" element={<TeamPage />} />
 
         {/* Comercial */}

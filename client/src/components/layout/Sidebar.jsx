@@ -30,6 +30,8 @@ const menuSections = [
       { id: 'administrativo-dashboard', label: 'Dashboard', path: '/administrativo' },
       { id: 'financeiro', label: 'Financeiro', path: '/financeiro' },
       { id: 'cotacoes', label: 'Cotações', path: '/cotacoes' },
+      { id: 'administrativo-producao', label: 'Produção', path: '/administrativo/producao' },
+      { id: 'administrativo-tarefas', label: 'Tarefas', path: '/administrativo/tarefas' },
     ],
   },
   {
