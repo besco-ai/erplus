@@ -412,8 +412,9 @@ function PipelineFormModal({ pipeline, onClose, onSaved }) {
 }
 
 export default function PipelinePage({ mine = false }) {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const pipelineQueryId = searchParams.get('pipeline');
+  const createPipelineFlag = searchParams.get('createPipeline');
   const { user } = useAuthStore();
   const [pipelines, setPipelines] = useState([]);
   const [deals, setDeals] = useState([]);
@@ -452,6 +453,19 @@ export default function PipelinePage({ mine = false }) {
     if (!Number.isFinite(id)) return;
     if (pipelines.some((p) => p.id === id)) setActivePipeline(id);
   }, [pipelineQueryId, pipelines]);
+
+  // A Sidebar aciona a criação de pipeline navegando com ?createPipeline=1.
+  // Aqui abrimos o modal e limpamos o param para não reabrir em refresh.
+  useEffect(() => {
+    if (createPipelineFlag) {
+      setPipelineModal('new');
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('createPipeline');
+        return next;
+      }, { replace: true });
+    }
+  }, [createPipelineFlag, setSearchParams]);
 
   const currentPipeline = pipelines.find((p) => p.id === activePipeline);
 

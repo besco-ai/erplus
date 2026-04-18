@@ -181,12 +181,6 @@ export default function Sidebar() {
                   {section.items.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
-                    // Para o item "Negociações" do grupo Comercial, expande dinamicamente
-                    // os pipelines cadastrados como sub-items indentados.
-                    const showPipelines =
-                      section.title === 'Comercial' &&
-                      item.id === 'negociacoes-comercial' &&
-                      commercialPipelines.length > 0;
 
                     return (
                       <div key={item.id}>
@@ -201,7 +195,7 @@ export default function Sidebar() {
                           {Icon ? <Icon size={16} /> : <span className="w-4" />}
                           <span>{item.label}</span>
                         </button>
-                        {showPipelines && (
+                        {section.title === 'Comercial' && item.id === 'negociacoes-comercial' && (
                           <div className="ml-5 border-l border-white/5 pl-2">
                             {commercialPipelines.map((p) => {
                               const path = `/comercial?pipeline=${p.id}`;
@@ -222,6 +216,13 @@ export default function Sidebar() {
                                 </button>
                               );
                             })}
+                            <button
+                              onClick={() => navigate('/comercial?createPipeline=1')}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-500 hover:bg-white/5 hover:text-erplus-accent transition mb-0.5 italic"
+                            >
+                              <span className="w-3 h-3 rounded-sm border border-dashed border-current flex items-center justify-center text-[10px] leading-none">+</span>
+                              <span>Criar pipeline</span>
+                            </button>
                           </div>
                         )}
                       </div>
