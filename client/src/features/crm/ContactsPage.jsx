@@ -4,6 +4,7 @@ import {
   MapPin, User, Users, ChevronRight, MessageSquare, Filter,
 } from 'lucide-react';
 import api from '../../services/api';
+import { useToast } from '../../components/ui/Toast';
 
 const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
 const TYPES = ['Lead', 'Cliente', 'Fornecedor', 'Relacionamento'];
@@ -21,6 +22,7 @@ const typeBadge = (type) => {
 
 function ContactModal({ contact, contacts, onClose, onSaved }) {
   const isEdit = !!contact;
+  const toast = useToast();
   const [form, setForm] = useState({
     type: contact?.type || 'Lead',
     personType: contact?.personType || 'PJ',
@@ -53,13 +55,17 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
       const payload = { ...form, linkedToId: form.linkedToId ? Number(form.linkedToId) : null };
       if (isEdit) {
         await api.put(`/crm/contacts/${contact.id}`, payload);
+        toast.push({ type: 'success', message: `Contato "${form.name}" atualizado` });
       } else {
         await api.post('/crm/contacts', payload);
+        toast.push({ type: 'success', message: `Contato "${form.name}" criado` });
       }
       onSaved();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.error || 'Erro ao salvar');
+      const msg = err.response?.data?.error || 'Erro ao salvar';
+      setError(msg);
+      toast.push({ type: 'error', message: msg });
     } finally {
       setSaving(false);
     }

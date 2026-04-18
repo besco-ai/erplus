@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Folder, CheckCircle2, Activity, AlertTriangle, Circle, Clock } from 'lucide-react';
+import { ArrowRight, Folder, CheckCircle2, Activity, AlertTriangle, Circle, Clock, Printer } from 'lucide-react';
 import api from '../../services/api';
 
 const CATEGORIES = [
@@ -41,7 +41,15 @@ export default function ProductionDashboardPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-extrabold text-erplus-text">Produção — Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-extrabold text-erplus-text">Produção — Dashboard</h1>
+        <button
+          onClick={() => window.print()}
+          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 flex items-center gap-2 print:hidden"
+        >
+          <Printer size={14} /> Imprimir
+        </button>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

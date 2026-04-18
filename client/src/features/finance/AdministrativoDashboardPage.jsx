@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, CalendarClock, Landmark } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, CalendarClock, Landmark, Printer } from 'lucide-react';
 import api from '../../services/api';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
@@ -34,7 +34,15 @@ export default function AdministrativoDashboardPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-extrabold text-erplus-text">Administrativo — Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-extrabold text-erplus-text">Administrativo — Dashboard</h1>
+        <button
+          onClick={() => window.print()}
+          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 flex items-center gap-2 print:hidden"
+        >
+          <Printer size={14} /> Imprimir
+        </button>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

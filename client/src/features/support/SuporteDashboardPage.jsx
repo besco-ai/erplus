@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Clock, MessageSquare, Activity } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, MessageSquare, Activity, Printer } from 'lucide-react';
 import api from '../../services/api';
 
 const formatDate = (d) => new Date(d).toLocaleDateString('pt-BR');
@@ -39,7 +39,15 @@ export default function SuporteDashboardPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-extrabold text-erplus-text">Suporte — Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-extrabold text-erplus-text">Suporte — Dashboard</h1>
+        <button
+          onClick={() => window.print()}
+          className="px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm font-semibold text-gray-700 flex items-center gap-2 print:hidden"
+        >
+          <Printer size={14} /> Imprimir
+        </button>
+      </div>
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
