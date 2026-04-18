@@ -83,21 +83,274 @@ function KanbanColumn({ stage, deals, onDealClick, onDrop }) {
   );
 }
 
+// ── Sub-tabs do DealModal ──
+
+function AtasTab({ dealId, atas, onChanged }) {
+  const [creating, setCreating] = useState(false);
+  const [form, setForm] = useState({ title: '', content: '' });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    try {
+      await api.post(`/commercial/deals/${dealId}/atas`, {
+        title: form.title, content: form.content, linksJson: null,
+      });
+      setForm({ title: '', content: '' });
+      setCreating(false);
+      onChanged();
+    } catch { /* silent */ } finally { setSaving(false); }
+  };
+
+  const remove = async (ataId) => {
+    if (!confirm('Excluir esta ata?')) return;
+    await api.delete(`/commercial/deals/${dealId}/atas/${ataId}`);
+    onChanged();
+  };
+
+  return (
+    <div>
+      <div className="flex justify-end mb-3">
+        <button
+          onClick={() => setCreating((v) => !v)}
+          className="text-xs font-semibold text-erplus-accent hover:underline flex items-center gap-1"
+        >
+          <Plus size={12} /> Nova ata
+        </button>
+      </div>
+
+      {creating && (
+        <div className="mb-4 p-3 border border-gray-200 rounded-lg bg-gray-50 space-y-2">
+          <input
+            value={form.title}
+            onChange={(e) => setForm({ ...form, title: e.target.value })}
+            placeholder="Título da ata"
+            className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+          />
+          <textarea
+            value={form.content}
+            onChange={(e) => setForm({ ...form, content: e.target.value })}
+            placeholder="Conteúdo"
+            rows={3}
+            className="w-full px-3 py-2 border border-gray-200 rounded text-sm resize-none"
+          />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setCreating(false)} className="px-3 py-1 text-xs text-gray-600 bg-gray-100 rounded">Cancelar</button>
+            <button
+              onClick={save}
+              disabled={saving || !form.title.trim()}
+              className="px-3 py-1 text-xs text-white bg-erplus-accent rounded disabled:opacity-50"
+            >
+              Salvar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {atas.length === 0 ? (
+        <p className="text-center py-8 text-gray-400 text-sm">Nenhuma ata</p>
+      ) : (
+        atas.map((a) => (
+          <div key={a.id} className="mb-3 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-semibold">{a.title}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">{new Date(a.date).toLocaleDateString('pt-BR')}</span>
+                <button onClick={() => remove(a.id)} className="text-gray-400 hover:text-red-500">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+            {a.content && <p className="text-sm text-gray-600 whitespace-pre-line">{a.content}</p>}
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function ChecklistEditor({ itemsJson, onSave }) {
+  const [items, setItems] = useState(() => {
+    try { return JSON.parse(itemsJson || '[]'); } catch { return []; }
+  });
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (i) => setItems((c) => c.map((it, idx) => (idx === i ? { ...it, done: !it.done } : it)));
+  const commit = async () => {
+    setSaving(true);
+    try { await onSave(JSON.stringify(items)); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="space-y-1.5">
+      {items.map((it, idx) => (
+        <label key={idx} className="flex items-start gap-2 py-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!!it.done}
+            onChange={() => toggle(idx)}
+            className="mt-0.5"
+          />
+          <span className={`text-sm ${it.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+            {it.title}
+            {it.required && <span className="text-red-500 ml-1">*</span>}
+          </span>
+        </label>
+      ))}
+      <div className="flex justify-end pt-2">
+        <button
+          onClick={commit}
+          disabled={saving}
+          className="px-3 py-1 text-xs font-semibold text-white bg-erplus-accent rounded disabled:opacity-50"
+        >
+          {saving ? 'Salvando...' : 'Salvar progresso'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DiligenceTab({ dealId, diligences, templates, onChanged }) {
+  const [loadingId, setLoadingId] = useState('');
+
+  const load = async () => {
+    if (!loadingId) return;
+    await api.post(`/commercial/deals/${dealId}/diligences`, { templateId: Number(loadingId) });
+    setLoadingId('');
+    onChanged();
+  };
+
+  const saveItems = (dilId) => async (itemsJson) => {
+    await api.put(`/commercial/deals/${dealId}/diligences/${dilId}`, { itemsJson });
+    onChanged();
+  };
+
+  return (
+    <div>
+      <div className="flex items-end gap-2 mb-4">
+        <div className="flex-1">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Carregar template</label>
+          <select
+            value={loadingId}
+            onChange={(e) => setLoadingId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+          >
+            <option value="">Selecione um template...</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <button
+          onClick={load}
+          disabled={!loadingId}
+          className="px-4 py-2 bg-erplus-accent text-white rounded text-sm font-semibold disabled:opacity-50"
+        >
+          Carregar
+        </button>
+      </div>
+
+      {diligences.length === 0 ? (
+        <p className="text-center py-8 text-gray-400 text-sm">Nenhuma diligência carregada</p>
+      ) : (
+        diligences.map((d) => (
+          <div key={d.id} className="mb-4 p-3 border border-gray-100 rounded-lg">
+            <div className="text-sm font-semibold mb-3">{d.templateName || `Template #${d.templateId}`}</div>
+            <ChecklistEditor itemsJson={d.itemsJson} onSave={saveItems(d.id)} />
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function BriefingTab({ dealId, briefings, templates, onChanged }) {
+  const [loadingId, setLoadingId] = useState('');
+
+  const load = async () => {
+    if (!loadingId) return;
+    await api.post(`/commercial/deals/${dealId}/briefings`, { templateId: Number(loadingId) });
+    setLoadingId('');
+    onChanged();
+  };
+
+  const saveItems = (briefId) => async (itemsJson) => {
+    await api.put(`/commercial/deals/${dealId}/briefings/${briefId}`, { itemsJson });
+    onChanged();
+  };
+
+  return (
+    <div>
+      <div className="flex items-end gap-2 mb-4">
+        <div className="flex-1">
+          <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Carregar template</label>
+          <select
+            value={loadingId}
+            onChange={(e) => setLoadingId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
+          >
+            <option value="">Selecione um template...</option>
+            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+          </select>
+        </div>
+        <button
+          onClick={load}
+          disabled={!loadingId}
+          className="px-4 py-2 bg-erplus-accent text-white rounded text-sm font-semibold disabled:opacity-50"
+        >
+          Carregar
+        </button>
+      </div>
+
+      {briefings.length === 0 ? (
+        <p className="text-center py-8 text-gray-400 text-sm">Nenhum briefing carregado</p>
+      ) : (
+        briefings.map((b) => (
+          <div key={b.id} className="mb-4 p-3 border border-gray-100 rounded-lg">
+            <div className="text-sm font-semibold mb-3">{b.templateName || `Template #${b.templateId}`}</div>
+            <ChecklistEditor itemsJson={b.itemsJson} onSave={saveItems(b.id)} />
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
 function DealModal({ deal, onClose, onSaved }) {
   const [tab, setTab] = useState('dados');
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [atas, setAtas] = useState([]);
+  const [diligences, setDiligences] = useState([]);
+  const [briefings, setBriefings] = useState([]);
+  const [timeline, setTimeline] = useState([]);
+  const [diligenceTemplates, setDiligenceTemplates] = useState([]);
+  const [briefingTemplates, setBriefingTemplates] = useState([]);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await api.get(`/commercial/deals/${deal.id}`);
-        setForm(data);
-      } catch { /* silent */ } finally {
-        setLoading(false);
-      }
-    })();
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [detail, atasRes, dilRes, briefRes, timelineRes, dtRes, btRes] = await Promise.all([
+        api.get(`/commercial/deals/${deal.id}`),
+        api.get(`/commercial/deals/${deal.id}/atas`),
+        api.get(`/commercial/deals/${deal.id}/diligences`),
+        api.get(`/commercial/deals/${deal.id}/briefings`),
+        api.get(`/commercial/deals/${deal.id}/timeline`),
+        api.get('/commercial/diligence-templates'),
+        api.get('/commercial/briefing-templates'),
+      ]);
+      setForm(detail.data);
+      setAtas(atasRes.data);
+      setDiligences(dilRes.data);
+      setBriefings(briefRes.data);
+      setTimeline(timelineRes.data);
+      setDiligenceTemplates(dtRes.data);
+      setBriefingTemplates(btRes.data);
+    } catch { /* silent */ } finally {
+      setLoading(false);
+    }
   }, [deal.id]);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
 
   const handleWin = async () => {
     if (!confirm('Marcar como GANHO?')) return;
@@ -124,8 +377,10 @@ function DealModal({ deal, onClose, onSaved }) {
     { id: 'dados', label: 'Dados' },
     { id: 'orcamentos', label: `Orçamentos (${form?.quotes?.length || 0})` },
     { id: 'contratos', label: `Contratos (${form?.contracts?.length || 0})` },
-    { id: 'atas', label: `Atas (${form?.atas?.length || 0})` },
-    { id: 'diligencia', label: 'Diligência' },
+    { id: 'atas', label: `Atas (${atas.length})` },
+    { id: 'briefing', label: `Briefing (${briefings.length})` },
+    { id: 'diligencia', label: `Diligência (${diligences.length})` },
+    { id: 'timeline', label: `Timeline (${timeline.length})` },
   ];
 
   return (
@@ -227,29 +482,28 @@ function DealModal({ deal, onClose, onSaved }) {
               ))}
             </div>
           ) : tab === 'atas' ? (
-            <div>
-              {form?.atas?.length === 0 ? (
-                <p className="text-center py-8 text-gray-400 text-sm">Nenhuma ata</p>
-              ) : form?.atas?.map((a) => (
-                <div key={a.id} className="mb-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-semibold">{a.title}</span>
-                    <span className="text-xs text-gray-400">{new Date(a.date).toLocaleDateString('pt-BR')}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 whitespace-pre-line">{a.content}</p>
-                </div>
-              ))}
-            </div>
+            <AtasTab dealId={deal.id} atas={atas} onChanged={loadAll} />
           ) : tab === 'diligencia' ? (
+            <DiligenceTab dealId={deal.id} diligences={diligences} templates={diligenceTemplates} onChanged={loadAll} />
+          ) : tab === 'briefing' ? (
+            <BriefingTab dealId={deal.id} briefings={briefings} templates={briefingTemplates} onChanged={loadAll} />
+          ) : tab === 'timeline' ? (
             <div>
-              {form?.diligences?.length === 0 ? (
-                <p className="text-center py-8 text-gray-400 text-sm">Nenhuma diligência carregada</p>
-              ) : form?.diligences?.map((d) => (
-                <div key={d.id} className="mb-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="text-sm font-semibold mb-2">{d.templateName || `Template #${d.templateId}`}</div>
-                  <div className="text-xs text-gray-500">Items JSON disponível para edição</div>
+              {timeline.length === 0 ? (
+                <p className="text-center py-8 text-gray-400 text-sm">Nenhum evento registrado</p>
+              ) : (
+                <div className="relative border-l-2 border-gray-100 ml-2">
+                  {timeline.map((t) => (
+                    <div key={t.id} className="pl-4 pb-4 relative">
+                      <div className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-erplus-accent" />
+                      <div className="text-xs text-gray-400">
+                        {new Date(t.date).toLocaleString('pt-BR')} · <span className="font-mono">{t.type}</span>
+                      </div>
+                      <div className="text-sm mt-0.5">{t.text}</div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           ) : null}
         </div>

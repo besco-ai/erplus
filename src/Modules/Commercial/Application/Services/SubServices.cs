@@ -91,6 +91,16 @@ public class AtaService
         await _db.SaveChangesAsync();
         return Result<bool>.Success(true);
     }
+
+    public async Task<Result<List<DealAtaDto>>> GetByDealAsync(int dealId)
+    {
+        var atas = await _db.DealAtas
+            .Where(a => a.DealId == dealId)
+            .OrderByDescending(a => a.Date)
+            .Select(a => new DealAtaDto(a.Id, a.DealId, a.Title, a.Date, a.Content, a.LinksJson))
+            .ToListAsync();
+        return Result<List<DealAtaDto>>.Success(atas);
+    }
 }
 
 // ══ Diligence ══
@@ -159,5 +169,100 @@ public class DiligenceService
             .Select(t => new BriefingTemplateDto(t.Id, t.Name, t.ItemsJson))
             .ToListAsync();
         return Result<List<BriefingTemplateDto>>.Success(templates);
+    }
+
+    // ── GETs por deal ──
+
+    public async Task<Result<List<DealDiligenceDto>>> GetDiligencesByDealAsync(int dealId)
+    {
+        var list = await _db.DealDiligences.Where(d => d.DealId == dealId)
+            .Join(_db.DiligenceTemplates, d => d.TemplateId, t => t.Id,
+                (d, t) => new DealDiligenceDto(d.Id, d.DealId, d.TemplateId, t.Name, d.ItemsJson))
+            .ToListAsync();
+        return Result<List<DealDiligenceDto>>.Success(list);
+    }
+
+    public async Task<Result<List<DealBriefingDto>>> GetBriefingsByDealAsync(int dealId)
+    {
+        var list = await _db.DealBriefings.Where(b => b.DealId == dealId)
+            .Join(_db.BriefingTemplates, b => b.TemplateId, t => t.Id,
+                (b, t) => new DealBriefingDto(b.Id, b.DealId, b.TemplateId, t.Name, b.ItemsJson))
+            .ToListAsync();
+        return Result<List<DealBriefingDto>>.Success(list);
+    }
+
+    public async Task<Result<bool>> UpdateBriefingItemsAsync(int dealId, int briefingId, UpdateBriefingItemsRequest r)
+    {
+        var b = await _db.DealBriefings.FirstOrDefaultAsync(x => x.Id == briefingId && x.DealId == dealId);
+        if (b is null) return Result<bool>.NotFound();
+        if (r.ItemsJson is not null) b.ItemsJson = r.ItemsJson;
+        b.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
+    }
+
+    // ── CRUD de DiligenceTemplate ──
+
+    public async Task<Result<DiligenceTemplateDto>> CreateTemplateAsync(CreateDiligenceTemplateRequest r)
+    {
+        if (string.IsNullOrWhiteSpace(r.Name))
+            return Result<DiligenceTemplateDto>.Failure("Nome é obrigatório");
+        var t = new DiligenceTemplate { Name = r.Name.Trim(), BusinessTypeId = r.BusinessTypeId, ItemsJson = r.ItemsJson };
+        _db.DiligenceTemplates.Add(t);
+        await _db.SaveChangesAsync();
+        return Result<DiligenceTemplateDto>.Created(new DiligenceTemplateDto(t.Id, t.Name, t.BusinessTypeId, t.ItemsJson));
+    }
+
+    public async Task<Result<DiligenceTemplateDto>> UpdateTemplateAsync(int id, UpdateDiligenceTemplateRequest r)
+    {
+        var t = await _db.DiligenceTemplates.FindAsync(id);
+        if (t is null) return Result<DiligenceTemplateDto>.NotFound();
+        if (r.Name is not null) t.Name = r.Name.Trim();
+        if (r.BusinessTypeId.HasValue) t.BusinessTypeId = r.BusinessTypeId;
+        if (r.ItemsJson is not null) t.ItemsJson = r.ItemsJson;
+        t.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<DiligenceTemplateDto>.Success(new DiligenceTemplateDto(t.Id, t.Name, t.BusinessTypeId, t.ItemsJson));
+    }
+
+    public async Task<Result<bool>> DeleteTemplateAsync(int id)
+    {
+        var t = await _db.DiligenceTemplates.FindAsync(id);
+        if (t is null) return Result<bool>.NotFound();
+        _db.DiligenceTemplates.Remove(t);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
+    }
+
+    // ── CRUD de BriefingTemplate ──
+
+    public async Task<Result<BriefingTemplateDto>> CreateBriefingTemplateAsync(CreateBriefingTemplateRequest r)
+    {
+        if (string.IsNullOrWhiteSpace(r.Name))
+            return Result<BriefingTemplateDto>.Failure("Nome é obrigatório");
+        var t = new BriefingTemplate { Name = r.Name.Trim(), ItemsJson = r.ItemsJson };
+        _db.BriefingTemplates.Add(t);
+        await _db.SaveChangesAsync();
+        return Result<BriefingTemplateDto>.Created(new BriefingTemplateDto(t.Id, t.Name, t.ItemsJson));
+    }
+
+    public async Task<Result<BriefingTemplateDto>> UpdateBriefingTemplateAsync(int id, UpdateBriefingTemplateRequest r)
+    {
+        var t = await _db.BriefingTemplates.FindAsync(id);
+        if (t is null) return Result<BriefingTemplateDto>.NotFound();
+        if (r.Name is not null) t.Name = r.Name.Trim();
+        if (r.ItemsJson is not null) t.ItemsJson = r.ItemsJson;
+        t.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<BriefingTemplateDto>.Success(new BriefingTemplateDto(t.Id, t.Name, t.ItemsJson));
+    }
+
+    public async Task<Result<bool>> DeleteBriefingTemplateAsync(int id)
+    {
+        var t = await _db.BriefingTemplates.FindAsync(id);
+        if (t is null) return Result<bool>.NotFound();
+        _db.BriefingTemplates.Remove(t);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 }

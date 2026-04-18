@@ -172,6 +172,53 @@ public class CommercialModuleInstaller : IModuleInstaller
         });
 
         // ── Atas ──
+        group.MapGet("/deals/{id:int}/atas", async (int id, AtaService svc) =>
+            Results.Ok((await svc.GetByDealAsync(id)).Data));
+
+        group.MapGet("/deals/{id:int}/diligences", async (int id, DiligenceService svc) =>
+            Results.Ok((await svc.GetDiligencesByDealAsync(id)).Data));
+
+        group.MapGet("/deals/{id:int}/briefings", async (int id, DiligenceService svc) =>
+            Results.Ok((await svc.GetBriefingsByDealAsync(id)).Data));
+
+        group.MapPut("/deals/{dealId:int}/briefings/{briefingId:int}", async (int dealId, int briefingId, UpdateBriefingItemsRequest req, DiligenceService svc) =>
+        {
+            var r = await svc.UpdateBriefingItemsAsync(dealId, briefingId, req);
+            return r.IsSuccess ? Results.Ok(new { message = "Atualizado" }) : Results.NotFound();
+        });
+
+        group.MapPost("/diligence-templates", async (CreateDiligenceTemplateRequest req, DiligenceService svc) =>
+        {
+            var r = await svc.CreateTemplateAsync(req);
+            return r.IsSuccess ? Results.Created($"/api/commercial/diligence-templates/{r.Data!.Id}", r.Data) : Results.BadRequest(new { error = r.Error });
+        });
+        group.MapPut("/diligence-templates/{id:int}", async (int id, UpdateDiligenceTemplateRequest req, DiligenceService svc) =>
+        {
+            var r = await svc.UpdateTemplateAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data) : r.StatusCode == 404 ? Results.NotFound() : Results.BadRequest(new { error = r.Error });
+        });
+        group.MapDelete("/diligence-templates/{id:int}", async (int id, DiligenceService svc) =>
+        {
+            var r = await svc.DeleteTemplateAsync(id);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
+        });
+
+        group.MapPost("/briefing-templates", async (CreateBriefingTemplateRequest req, DiligenceService svc) =>
+        {
+            var r = await svc.CreateBriefingTemplateAsync(req);
+            return r.IsSuccess ? Results.Created($"/api/commercial/briefing-templates/{r.Data!.Id}", r.Data) : Results.BadRequest(new { error = r.Error });
+        });
+        group.MapPut("/briefing-templates/{id:int}", async (int id, UpdateBriefingTemplateRequest req, DiligenceService svc) =>
+        {
+            var r = await svc.UpdateBriefingTemplateAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data) : r.StatusCode == 404 ? Results.NotFound() : Results.BadRequest(new { error = r.Error });
+        });
+        group.MapDelete("/briefing-templates/{id:int}", async (int id, DiligenceService svc) =>
+        {
+            var r = await svc.DeleteBriefingTemplateAsync(id);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
+        });
+
         group.MapPost("/deals/{id:int}/atas", async (int id, CreateAtaRequest req, AtaService svc) =>
         {
             var r = await svc.CreateAsync(id, req);
