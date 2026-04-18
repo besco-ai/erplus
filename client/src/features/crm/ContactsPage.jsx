@@ -29,6 +29,7 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
     cnpj: contact?.cnpj || '',
     cpf: contact?.cpf || '',
     phone: contact?.phone || '',
+    cellphone: contact?.cellphone || '',
     email: contact?.email || '',
     city: contact?.city || '',
     state: contact?.state || '',
@@ -36,6 +37,7 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
     linkedToId: contact?.linkedToId || '',
     position: contact?.position || '',
     birthday: contact?.birthday || '',
+    notes: contact?.notes || '',
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -107,10 +109,21 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
             </>
           )}
           <Field label="Telefone" value={form.phone} onChange={(v) => set('phone', v)} placeholder="(00) 0000-0000" />
+          <Field label="Celular" value={form.cellphone} onChange={(v) => set('cellphone', v)} placeholder="(00) 00000-0000" />
           <Field label="E-mail" value={form.email} onChange={(v) => set('email', v)} type="email" />
           <Field label="Cidade" value={form.city} onChange={(v) => set('city', v)} />
           <Field label="UF" value={form.state} onChange={(v) => set('state', v)} options={[{ value: '', label: '—' }, ...UFS.map((u) => ({ value: u, label: u }))]} />
           <Field label="Status" value={form.status} onChange={(v) => set('status', v)} options={['Ativo', 'Inativo', 'Novo']} />
+          <div className="col-span-2">
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Notas</label>
+            <textarea
+              value={form.notes}
+              onChange={(e) => set('notes', e.target.value)}
+              rows={2}
+              placeholder="Observações gerais sobre o contato..."
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none"
+            />
+          </div>
         </div>
 
         {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
@@ -126,9 +139,30 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
   );
 }
 
+const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('pt-BR') : '—');
+
 function ContactDetail({ contact, onClose, onUpdated }) {
+  const [tab, setTab] = useState('dados');
   const [obsTitle, setObsTitle] = useState('');
   const [obsContent, setObsContent] = useState('');
+  const [related, setRelated] = useState({ deals: [], quotes: [], contracts: [], projects: [] });
+  const [relLoading, setRelLoading] = useState(false);
+
+  const loadRelated = useCallback(async () => {
+    setRelLoading(true);
+    try {
+      const [d, q, c, p] = await Promise.all([
+        api.get(`/commercial/deals?clientId=${contact.id}`),
+        api.get(`/commercial/quotes?clientId=${contact.id}`),
+        api.get(`/commercial/contracts?clientId=${contact.id}`),
+        api.get(`/projects?clientId=${contact.id}`),
+      ]);
+      setRelated({ deals: d.data, quotes: q.data, contracts: c.data, projects: p.data });
+    } catch { /* silent */ } finally { setRelLoading(false); }
+  }, [contact.id]);
+
+  useEffect(() => { loadRelated(); }, [loadRelated]);
 
   const addObs = async () => {
     if (!obsTitle.trim()) return;
@@ -148,11 +182,21 @@ function ContactDetail({ contact, onClose, onUpdated }) {
     } catch { /* silent */ }
   };
 
+  const tabs = [
+    { id: 'dados', label: 'Dados' },
+    { id: 'observacoes', label: `Observações (${contact.observations?.length || 0})` },
+    { id: 'negocios', label: `Negócios (${related.deals.length})` },
+    { id: 'orcamentos', label: `Orçamentos (${related.quotes.length})` },
+    { id: 'contratos', label: `Contratos (${related.contracts.length})` },
+    { id: 'empreendimentos', label: `Empreendimentos (${related.projects.length})` },
+  ];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-        <div className="flex items-center justify-between mb-4">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
             <h3 className="text-lg font-bold">{contact.name}</h3>
             <div className="flex items-center gap-2 mt-1">
@@ -164,64 +208,138 @@ function ContactDetail({ contact, onClose, onUpdated }) {
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
 
-        {/* Info grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {contact.company && <div className="flex items-center gap-2 text-sm text-gray-600"><Building size={14} className="text-gray-400" />{contact.company}</div>}
-          {contact.phone && <div className="flex items-center gap-2 text-sm text-gray-600"><Phone size={14} className="text-gray-400" />{contact.phone}</div>}
-          {contact.email && <div className="flex items-center gap-2 text-sm text-gray-600"><Mail size={14} className="text-gray-400" />{contact.email}</div>}
-          {contact.city && <div className="flex items-center gap-2 text-sm text-gray-600"><MapPin size={14} className="text-gray-400" />{contact.city}{contact.state ? `/${contact.state}` : ''}</div>}
-          {contact.position && <div className="flex items-center gap-2 text-sm text-gray-600"><User size={14} className="text-gray-400" />{contact.position}</div>}
-          {(contact.cnpj || contact.cpf) && <div className="text-sm text-gray-400">{contact.cnpj || contact.cpf}</div>}
+        {/* Tabs */}
+        <div className="flex gap-1 px-6 pt-3 bg-gray-50/50 overflow-x-auto">
+          {tabs.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-3 py-2 text-sm font-medium rounded-t-lg whitespace-nowrap transition ${
+                tab === t.id ? 'bg-white text-erplus-accent border-b-2 border-erplus-accent' : 'text-gray-500 hover:text-gray-700'
+              }`}>
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* Linked contacts */}
-        {contact.linkedContacts?.length > 0 && (
-          <div className="mb-6">
-            <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><Users size={14} /> Contatos Vinculados</h4>
-            {contact.linkedContacts.map((lc) => (
-              <div key={lc.id} className="flex items-center gap-3 py-2 border-b border-gray-50">
-                <div className="w-8 h-8 rounded-full bg-erplus-accent text-white flex items-center justify-center text-xs font-bold">
-                  {lc.name.split(' ').slice(0, 2).map((w) => w[0]).join('')}
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">{lc.name}</div>
-                  <div className="text-xs text-gray-400">{lc.position} · {lc.phone}</div>
-                </div>
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {tab === 'dados' ? (
+            <div>
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {contact.company && <div className="flex items-center gap-2 text-sm text-gray-600"><Building size={14} className="text-gray-400" />{contact.company}</div>}
+                {contact.phone && <div className="flex items-center gap-2 text-sm text-gray-600"><Phone size={14} className="text-gray-400" />{contact.phone}</div>}
+                {contact.cellphone && <div className="flex items-center gap-2 text-sm text-gray-600"><Phone size={14} className="text-gray-400" />{contact.cellphone} <span className="text-xs text-gray-400">(celular)</span></div>}
+                {contact.email && <div className="flex items-center gap-2 text-sm text-gray-600"><Mail size={14} className="text-gray-400" />{contact.email}</div>}
+                {contact.city && <div className="flex items-center gap-2 text-sm text-gray-600"><MapPin size={14} className="text-gray-400" />{contact.city}{contact.state ? `/${contact.state}` : ''}</div>}
+                {contact.position && <div className="flex items-center gap-2 text-sm text-gray-600"><User size={14} className="text-gray-400" />{contact.position}</div>}
+                {(contact.cnpj || contact.cpf) && <div className="text-sm text-gray-400">{contact.cnpj || contact.cpf}</div>}
+                {contact.birthday && <div className="text-sm text-gray-400">🎂 {fmtDate(contact.birthday)}</div>}
               </div>
-            ))}
-          </div>
-        )}
-
-        {/* Observations */}
-        <div className="border-t pt-4">
-          <h4 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2"><MessageSquare size={14} /> Observações ({contact.observations?.length || 0})</h4>
-          {contact.observations?.map((obs) => (
-            <div key={obs.id} className="mb-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-semibold">{obs.title}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">{new Date(obs.date).toLocaleDateString('pt-BR')}</span>
-                  <button onClick={() => deleteObs(obs.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+              {contact.notes && (
+                <div className="p-3 bg-gray-50 rounded-lg mb-6">
+                  <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Notas</div>
+                  <p className="text-sm text-gray-700 whitespace-pre-line">{contact.notes}</p>
                 </div>
-              </div>
-              <p className="text-sm text-gray-600">{obs.content}</p>
+              )}
+              {contact.linkedContacts?.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2"><Users size={14} /> Contatos vinculados</h4>
+                  {contact.linkedContacts.map((lc) => (
+                    <div key={lc.id} className="flex items-center gap-3 py-2 border-b border-gray-50">
+                      <div className="w-8 h-8 rounded-full bg-erplus-accent text-white flex items-center justify-center text-xs font-bold">
+                        {lc.name.split(' ').slice(0, 2).map((w) => w[0]).join('')}
+                      </div>
+                      <div className="flex-1">
+                        <div className="text-sm font-medium">{lc.name}</div>
+                        <div className="text-xs text-gray-400">{lc.position} · {lc.phone}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-
-          {/* Add observation */}
-          <div className="mt-3 space-y-2">
-            <input value={obsTitle} onChange={(e) => setObsTitle(e.target.value)} placeholder="Título da observação..."
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
-            <textarea value={obsContent} onChange={(e) => setObsContent(e.target.value)} placeholder="Conteúdo..." rows={2}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
-            <button onClick={addObs} disabled={!obsTitle.trim()}
-              className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 disabled:opacity-40 flex items-center gap-2">
-              <Plus size={14} /> Adicionar
-            </button>
-          </div>
+          ) : tab === 'observacoes' ? (
+            <div>
+              {contact.observations?.length === 0 ? (
+                <p className="text-center py-8 text-gray-300 text-sm">Nenhuma observação</p>
+              ) : contact.observations?.map((obs) => (
+                <div key={obs.id} className="mb-3 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-semibold">{obs.title}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">{fmtDate(obs.date)}</span>
+                      <button onClick={() => deleteObs(obs.id)} className="text-gray-400 hover:text-red-500"><Trash2 size={12} /></button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-600 whitespace-pre-line">{obs.content}</p>
+                </div>
+              ))}
+              <div className="mt-3 space-y-2 p-3 border border-gray-100 rounded-lg">
+                <input value={obsTitle} onChange={(e) => setObsTitle(e.target.value)} placeholder="Título da observação..."
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" />
+                <textarea value={obsContent} onChange={(e) => setObsContent(e.target.value)} placeholder="Conteúdo..." rows={2}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm resize-none" />
+                <button onClick={addObs} disabled={!obsTitle.trim()}
+                  className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 disabled:opacity-40 flex items-center gap-2">
+                  <Plus size={14} /> Adicionar
+                </button>
+              </div>
+            </div>
+          ) : relLoading ? (
+            <div className="text-center py-8 text-gray-400 text-sm">Carregando...</div>
+          ) : tab === 'negocios' ? (
+            related.deals.length === 0 ? <EmptyTab label="Nenhum negócio" /> : (
+              <RelatedTable rows={related.deals.map((d) => ({
+                col1: d.title, col2: d.stageName, col3: d.dealStatus, col4: R$(d.value),
+              }))} headers={['Título', 'Etapa', 'Status', 'Valor']} />
+            )
+          ) : tab === 'orcamentos' ? (
+            related.quotes.length === 0 ? <EmptyTab label="Nenhum orçamento" /> : (
+              <RelatedTable rows={related.quotes.map((q) => ({
+                col1: `${q.numero} · ${q.titulo}`, col2: fmtDate(q.data), col3: q.status, col4: R$(q.valor),
+              }))} headers={['Orçamento', 'Data', 'Status', 'Valor']} />
+            )
+          ) : tab === 'contratos' ? (
+            related.contracts.length === 0 ? <EmptyTab label="Nenhum contrato" /> : (
+              <RelatedTable rows={related.contracts.map((c) => ({
+                col1: `${c.numero} · ${c.titulo}`, col2: fmtDate(c.dataInicio), col3: c.status, col4: R$(c.valor),
+              }))} headers={['Contrato', 'Início', 'Status', 'Valor']} />
+            )
+          ) : tab === 'empreendimentos' ? (
+            related.projects.length === 0 ? <EmptyTab label="Nenhum empreendimento" /> : (
+              <RelatedTable rows={related.projects.map((p) => ({
+                col1: p.title, col2: fmtDate(p.startDate), col3: '—', col4: R$(p.value),
+              }))} headers={['Empreendimento', 'Início', '—', 'Valor']} />
+            )
+          ) : null}
         </div>
       </div>
     </div>
+  );
+}
+
+function EmptyTab({ label }) {
+  return <div className="text-center py-12 text-gray-300 text-sm">{label}</div>;
+}
+
+function RelatedTable({ headers, rows }) {
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="text-xs text-gray-500 uppercase border-b border-gray-100">
+          {headers.map((h, i) => <th key={i} className="text-left py-2 font-bold">{h}</th>)}
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, i) => (
+          <tr key={i} className="border-b border-gray-50">
+            <td className="py-2.5 font-medium">{r.col1}</td>
+            <td className="py-2.5 text-gray-500">{r.col2}</td>
+            <td className="py-2.5 text-gray-500">{r.col3}</td>
+            <td className="py-2.5 text-right font-bold text-erplus-accent">{r.col4}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 

@@ -12,10 +12,11 @@ public class QuoteService
 
     public QuoteService(CommercialDbContext db) => _db = db;
 
-    public async Task<Result<List<QuoteDto>>> GetAllAsync(int? dealId)
+    public async Task<Result<List<QuoteDto>>> GetAllAsync(int? dealId, int? clientId = null)
     {
         var query = _db.Quotes.AsQueryable();
         if (dealId.HasValue) query = query.Where(q => q.DealId == dealId.Value);
+        if (clientId.HasValue) query = query.Where(q => q.ClientId == clientId.Value);
 
         var quotes = await query.OrderByDescending(q => q.Data)
             .Select(q => new QuoteDto(q.Id, q.Numero, q.DealId, q.Titulo, q.ClientId,

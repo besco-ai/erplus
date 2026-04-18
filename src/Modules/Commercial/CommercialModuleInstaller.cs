@@ -34,9 +34,9 @@ public class CommercialModuleInstaller : IModuleInstaller
         var group = endpoints.MapGroup("/api/commercial").WithTags("Commercial").RequireAuthorization();
 
         // ── Deals ──
-        group.MapGet("/deals", async (int? pipelineId, int? stageId, string? status, int? responsibleId, DealService svc) =>
+        group.MapGet("/deals", async (int? pipelineId, int? stageId, string? status, int? responsibleId, int? clientId, DealService svc) =>
         {
-            var r = await svc.GetAllAsync(pipelineId, stageId, status, responsibleId);
+            var r = await svc.GetAllAsync(pipelineId, stageId, status, responsibleId, clientId);
             return Results.Ok(r.Data);
         });
 
@@ -134,9 +134,9 @@ public class CommercialModuleInstaller : IModuleInstaller
         });
 
         // ── Quotes ──
-        group.MapGet("/quotes", async (int? dealId, QuoteService svc) =>
+        group.MapGet("/quotes", async (int? dealId, int? clientId, QuoteService svc) =>
         {
-            var r = await svc.GetAllAsync(dealId);
+            var r = await svc.GetAllAsync(dealId, clientId);
             return Results.Ok(r.Data);
         });
 
@@ -159,9 +159,9 @@ public class CommercialModuleInstaller : IModuleInstaller
         });
 
         // ── Contracts ──
-        group.MapGet("/contracts", async (int? dealId, ContractService svc) =>
+        group.MapGet("/contracts", async (int? dealId, int? clientId, ContractService svc) =>
         {
-            var r = await svc.GetAllAsync(dealId);
+            var r = await svc.GetAllAsync(dealId, clientId);
             return Results.Ok(r.Data);
         });
 

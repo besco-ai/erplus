@@ -30,7 +30,7 @@ public class DealService
         _automation = automation;
     }
 
-    public async Task<Result<List<DealDto>>> GetAllAsync(int? pipelineId, int? stageId, string? status, int? responsibleId)
+    public async Task<Result<List<DealDto>>> GetAllAsync(int? pipelineId, int? stageId, string? status, int? responsibleId, int? clientId = null)
     {
         var query = _db.Deals.Include(d => d.Pipeline).Include(d => d.Stage).AsQueryable();
 
@@ -38,6 +38,7 @@ public class DealService
         if (stageId.HasValue) query = query.Where(d => d.StageId == stageId.Value);
         if (!string.IsNullOrEmpty(status)) query = query.Where(d => d.DealStatus == status);
         if (responsibleId.HasValue) query = query.Where(d => d.ResponsibleId == responsibleId.Value);
+        if (clientId.HasValue) query = query.Where(d => d.ClientId == clientId.Value);
 
         var deals = await query.OrderByDescending(d => d.Date)
             .Select(d => new DealDto(

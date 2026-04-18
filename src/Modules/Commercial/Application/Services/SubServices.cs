@@ -11,10 +11,11 @@ public class ContractService
     private readonly CommercialDbContext _db;
     public ContractService(CommercialDbContext db) => _db = db;
 
-    public async Task<Result<List<ContractDto>>> GetAllAsync(int? dealId)
+    public async Task<Result<List<ContractDto>>> GetAllAsync(int? dealId, int? clientId = null)
     {
         var query = _db.Contracts.AsQueryable();
         if (dealId.HasValue) query = query.Where(c => c.DealId == dealId.Value);
+        if (clientId.HasValue) query = query.Where(c => c.ClientId == clientId.Value);
 
         var contracts = await query.OrderByDescending(c => c.DataInicio)
             .Select(c => new ContractDto(c.Id, c.Numero, c.QuoteId, c.DealId, c.ClientId,
