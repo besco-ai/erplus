@@ -14,4 +14,13 @@ public class AutomationRule : BaseEntity
     public string? TaskTitle { get; set; }
     public int? DiligenceTemplateId { get; set; }
     public bool Active { get; set; } = true;
+
+    /// <summary>
+    /// Condições opcionais avaliadas antes de executar a ação. JSON array de
+    /// clauses: [{"field":"value","op":"gt","value":10000}]. Se null ou vazio,
+    /// a regra sempre executa no trigger. Campos suportados: deal.value,
+    /// deal.probability, deal.dealStatus, deal.pipelineId, deal.stageId.
+    /// Operadores: eq, ne, gt, lt, gte, lte, contains.
+    /// </summary>
+    public string? ConditionJson { get; set; }
 }

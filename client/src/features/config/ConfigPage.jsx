@@ -441,6 +441,8 @@ function AutomationsTab() {
       triggerPipelineId: form.triggerPipelineId ? Number(form.triggerPipelineId) : null,
       actionStageId: form.actionStageId ? Number(form.actionStageId) : null,
       actionPipelineId: form.actionPipelineId ? Number(form.actionPipelineId) : null,
+      diligenceTemplateId: form.diligenceTemplateId ? Number(form.diligenceTemplateId) : null,
+      conditionJson: form.conditionJson?.trim() || null,
     };
     if (modal && modal !== 'new') await api.put(`/automation/rules/${modal.id}`, payload);
     else await api.post('/automation/rules', payload);
@@ -510,7 +512,9 @@ function AutomationsTab() {
             { key: 'name', label: 'Nome', required: true },
             { key: 'trigger', label: 'Gatilho', type: 'select', default: 'stage_enter',
               options: [
-                { value: 'stage_enter', label: 'Deal entra na etapa (stage_enter)' },
+                { value: 'stage_enter', label: 'Deal entra na etapa' },
+                { value: 'deal_won', label: 'Deal ganho' },
+                { value: 'task_complete', label: 'Tarefa concluída' },
               ] },
             { key: 'triggerPipelineId', label: 'Pipeline do gatilho (opcional)', type: 'number', placeholder: 'ID do pipeline' },
             { key: 'triggerStageId', label: 'Etapa do gatilho (opcional)', type: 'number', placeholder: 'ID da etapa' },
@@ -518,10 +522,14 @@ function AutomationsTab() {
               options: [
                 { value: 'create_task', label: 'Criar tarefa' },
                 { value: 'move_pipeline', label: 'Mover para pipeline/etapa' },
+                { value: 'load_diligence', label: 'Carregar diligência' },
               ] },
             { key: 'taskTitle', label: 'Título da tarefa (se ação = create_task)' },
             { key: 'actionPipelineId', label: 'Pipeline destino (se move_pipeline)', type: 'number' },
             { key: 'actionStageId', label: 'Etapa destino (se move_pipeline)', type: 'number' },
+            { key: 'diligenceTemplateId', label: 'Template de diligência (se load_diligence)', type: 'number' },
+            { key: 'conditionJson', label: 'Condições (JSON — opcional)', type: 'textarea',
+              placeholder: '[{"field":"deal.value","op":"gt","value":10000}]' },
             { key: 'active', label: 'Ativa', type: 'select', default: 'true',
               options: [{ value: 'true', label: 'Sim' }, { value: 'false', label: 'Não' }] },
           ]}

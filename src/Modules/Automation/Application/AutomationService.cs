@@ -8,14 +8,17 @@ namespace ERPlus.Modules.Automation.Application;
 public record AutomationRuleDto(
     int Id, string Name, string Trigger, int? TriggerStageId, int? TriggerPipelineId,
     string Action, int? ActionPipelineId, int? ActionStageId, string? TaskTitle,
-    int? DiligenceTemplateId, bool Active);
+    int? DiligenceTemplateId, bool Active, string? ConditionJson);
 
 public record CreateRuleRequest(
     string Name, string Trigger, int? TriggerStageId, int? TriggerPipelineId,
     string Action, int? ActionPipelineId, int? ActionStageId, string? TaskTitle,
-    int? DiligenceTemplateId);
+    int? DiligenceTemplateId, string? ConditionJson);
 
-public record UpdateRuleRequest(string? Name, bool? Active);
+public record UpdateRuleRequest(
+    string? Name, bool? Active, string? Trigger, int? TriggerStageId, int? TriggerPipelineId,
+    string? Action, int? ActionPipelineId, int? ActionStageId, string? TaskTitle,
+    int? DiligenceTemplateId, string? ConditionJson);
 
 public class AutomationService
 {
@@ -25,7 +28,7 @@ public class AutomationService
     public async Task<Result<List<AutomationRuleDto>>> GetAllAsync() =>
         Result<List<AutomationRuleDto>>.Success(await _db.Rules.OrderBy(r => r.Name)
             .Select(r => new AutomationRuleDto(r.Id, r.Name, r.Trigger, r.TriggerStageId, r.TriggerPipelineId,
-                r.Action, r.ActionPipelineId, r.ActionStageId, r.TaskTitle, r.DiligenceTemplateId, r.Active))
+                r.Action, r.ActionPipelineId, r.ActionStageId, r.TaskTitle, r.DiligenceTemplateId, r.Active, r.ConditionJson))
             .ToListAsync());
 
     public async Task<Result<AutomationRuleDto>> CreateAsync(CreateRuleRequest r)
@@ -36,13 +39,14 @@ public class AutomationService
             Name = r.Name.Trim(), Trigger = r.Trigger, TriggerStageId = r.TriggerStageId,
             TriggerPipelineId = r.TriggerPipelineId, Action = r.Action,
             ActionPipelineId = r.ActionPipelineId, ActionStageId = r.ActionStageId,
-            TaskTitle = r.TaskTitle, DiligenceTemplateId = r.DiligenceTemplateId, Active = true
+            TaskTitle = r.TaskTitle, DiligenceTemplateId = r.DiligenceTemplateId, Active = true,
+            ConditionJson = r.ConditionJson
         };
         _db.Rules.Add(rule);
         await _db.SaveChangesAsync();
         return Result<AutomationRuleDto>.Created(new AutomationRuleDto(rule.Id, rule.Name, rule.Trigger,
             rule.TriggerStageId, rule.TriggerPipelineId, rule.Action, rule.ActionPipelineId,
-            rule.ActionStageId, rule.TaskTitle, rule.DiligenceTemplateId, rule.Active));
+            rule.ActionStageId, rule.TaskTitle, rule.DiligenceTemplateId, rule.Active, rule.ConditionJson));
     }
 
     public async Task<Result<bool>> UpdateAsync(int id, UpdateRuleRequest r)
@@ -51,6 +55,15 @@ public class AutomationService
         if (rule is null) return Result<bool>.NotFound();
         if (r.Name is not null) rule.Name = r.Name.Trim();
         if (r.Active.HasValue) rule.Active = r.Active.Value;
+        if (r.Trigger is not null) rule.Trigger = r.Trigger;
+        if (r.TriggerStageId.HasValue) rule.TriggerStageId = r.TriggerStageId;
+        if (r.TriggerPipelineId.HasValue) rule.TriggerPipelineId = r.TriggerPipelineId;
+        if (r.Action is not null) rule.Action = r.Action;
+        if (r.ActionPipelineId.HasValue) rule.ActionPipelineId = r.ActionPipelineId;
+        if (r.ActionStageId.HasValue) rule.ActionStageId = r.ActionStageId;
+        if (r.TaskTitle is not null) rule.TaskTitle = r.TaskTitle;
+        if (r.DiligenceTemplateId.HasValue) rule.DiligenceTemplateId = r.DiligenceTemplateId;
+        if (r.ConditionJson is not null) rule.ConditionJson = r.ConditionJson;
         rule.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Result<bool>.Success(true);

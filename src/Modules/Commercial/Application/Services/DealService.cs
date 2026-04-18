@@ -327,6 +327,10 @@ public class DealService
             if (rule.TriggerStageId.HasValue && (stage?.Id ?? 0) != rule.TriggerStageId.Value) continue;
             if (rule.TriggerPipelineId.HasValue && deal.PipelineId != rule.TriggerPipelineId.Value) continue;
 
+            // Condições opcionais (ConditionJson): avaliadas aqui. Se a regra
+            // define condições e alguma falha, pula sem executar nem logar.
+            if (!EvaluateConditions(rule.ConditionJson, deal)) continue;
+
             try
             {
                 await ExecuteRuleActionAsync(rule, deal);
@@ -339,6 +343,88 @@ public class DealService
             }
         }
         await _db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Avalia um array JSON de cláusulas contra o deal. Cada cláusula é
+    /// {field, op, value}. Todas as cláusulas precisam passar (AND). Operadores
+    /// suportados: eq, ne, gt, lt, gte, lte, contains. Campos: deal.value,
+    /// deal.probability, deal.dealStatus, deal.pipelineId, deal.stageId,
+    /// deal.businessTypeId, deal.clientId, deal.responsibleId.
+    /// </summary>
+    private static bool EvaluateConditions(string? conditionJson, Deal deal)
+    {
+        if (string.IsNullOrWhiteSpace(conditionJson)) return true;
+
+        List<JsonElement>? clauses;
+        try
+        {
+            clauses = JsonSerializer.Deserialize<List<JsonElement>>(conditionJson);
+        }
+        catch { return true; /* JSON inválido = sem condição */ }
+
+        if (clauses is null || clauses.Count == 0) return true;
+
+        foreach (var clause in clauses)
+        {
+            var field = clause.TryGetProperty("field", out var f) ? f.GetString() : null;
+            var op = clause.TryGetProperty("op", out var o) ? o.GetString() : null;
+            if (field is null || op is null || !clause.TryGetProperty("value", out var valEl)) continue;
+
+            var dealValue = ReadDealField(deal, field);
+            if (!Compare(dealValue, op, valEl)) return false;
+        }
+        return true;
+    }
+
+    private static object? ReadDealField(Deal deal, string field) => field switch
+    {
+        "deal.value" => deal.Value,
+        "deal.probability" => deal.Probability,
+        "deal.dealStatus" => deal.DealStatus,
+        "deal.pipelineId" => deal.PipelineId,
+        "deal.stageId" => deal.StageId,
+        "deal.businessTypeId" => deal.BusinessTypeId,
+        "deal.clientId" => deal.ClientId,
+        "deal.responsibleId" => deal.ResponsibleId,
+        _ => null
+    };
+
+    private static bool Compare(object? left, string op, JsonElement right)
+    {
+        if (left is null) return op == "eq" && right.ValueKind == JsonValueKind.Null;
+
+        // Comparações numéricas quando possível
+        if (left is decimal or int or long or double &&
+            (right.ValueKind == JsonValueKind.Number || right.ValueKind == JsonValueKind.String))
+        {
+            var l = Convert.ToDecimal(left);
+            if (!decimal.TryParse(
+                right.ValueKind == JsonValueKind.Number ? right.GetRawText() : right.GetString(),
+                System.Globalization.NumberStyles.Any,
+                System.Globalization.CultureInfo.InvariantCulture,
+                out var r)) return false;
+
+            return op switch
+            {
+                "eq"  => l == r, "ne"  => l != r,
+                "gt"  => l >  r, "lt"  => l <  r,
+                "gte" => l >= r, "lte" => l <= r,
+                _ => false
+            };
+        }
+
+        // Comparações de string
+        var ls = left.ToString() ?? string.Empty;
+        var rs = right.ValueKind == JsonValueKind.String ? (right.GetString() ?? "") : right.GetRawText();
+
+        return op switch
+        {
+            "eq"       => ls == rs,
+            "ne"       => ls != rs,
+            "contains" => ls.Contains(rs, StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
     }
 
     private async Task ExecuteRuleActionAsync(
