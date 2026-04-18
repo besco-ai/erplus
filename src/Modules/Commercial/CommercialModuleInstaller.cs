@@ -257,6 +257,93 @@ public class CommercialModuleInstaller : IModuleInstaller
         var db = scope.ServiceProvider.GetRequiredService<CommercialDbContext>();
         db.Database.Migrate();
         SeedInitialPipelines(db);
+        SeedTemplates(db);
+    }
+
+    /// <summary>
+    /// Popula templates estruturais do artefato (2 diligências + 3 briefings)
+    /// quando as tabelas respectivas estão vazias. Idempotente — não mexe em
+    /// templates criados pelo usuário.
+    /// </summary>
+    private static void SeedTemplates(CommercialDbContext db)
+    {
+        var now = DateTime.UtcNow;
+
+        if (!db.DiligenceTemplates.Any())
+        {
+            db.DiligenceTemplates.AddRange(
+                new Domain.Entities.DiligenceTemplate
+                {
+                    Name = "Due Diligence — Viabilidade",
+                    BusinessTypeId = null,
+                    ItemsJson = "[" +
+                        "{\"title\":\"Matrícula atualizada do imóvel\",\"required\":true}," +
+                        "{\"title\":\"Certidão de ônus reais\",\"required\":true}," +
+                        "{\"title\":\"Consulta de parâmetros urbanísticos (SAMA)\",\"required\":true}," +
+                        "{\"title\":\"Verificação de zoneamento (LOT)\",\"required\":true}," +
+                        "{\"title\":\"Análise de restrições ambientais\",\"required\":false}," +
+                        "{\"title\":\"Certidão de uso do solo\",\"required\":true}," +
+                        "{\"title\":\"Consulta de viabilidade junto à SAMA\",\"required\":true}" +
+                        "]",
+                    CreatedAt = now
+                },
+                new Domain.Entities.DiligenceTemplate
+                {
+                    Name = "Due Diligence — Laudo Geotécnico",
+                    BusinessTypeId = null,
+                    ItemsJson = "[" +
+                        "{\"title\":\"Autorização de acesso ao terreno\",\"required\":true}," +
+                        "{\"title\":\"Planta de localização do terreno\",\"required\":true}," +
+                        "{\"title\":\"Projeto arquitetônico (se houver)\",\"required\":false}," +
+                        "{\"title\":\"Relatório prévio de sondagem\",\"required\":false}," +
+                        "{\"title\":\"Definição de quantidade de furos SPT\",\"required\":true}" +
+                        "]",
+                    CreatedAt = now
+                }
+            );
+        }
+
+        if (!db.BriefingTemplates.Any())
+        {
+            db.BriefingTemplates.AddRange(
+                new Domain.Entities.BriefingTemplate
+                {
+                    Name = "Residencial Multifamiliar",
+                    ItemsJson = "[" +
+                        "{\"title\":\"Número de unidades previstas\",\"required\":true}," +
+                        "{\"title\":\"Área média por unidade (m²)\",\"required\":true}," +
+                        "{\"title\":\"Público-alvo\",\"required\":false}," +
+                        "{\"title\":\"Padrão construtivo\",\"required\":true}," +
+                        "{\"title\":\"Áreas comuns desejadas\",\"required\":false}" +
+                        "]",
+                    CreatedAt = now
+                },
+                new Domain.Entities.BriefingTemplate
+                {
+                    Name = "Residencial Unifamiliar",
+                    ItemsJson = "[" +
+                        "{\"title\":\"Programa de necessidades (dormitórios, suítes, etc.)\",\"required\":true}," +
+                        "{\"title\":\"Número de pavimentos\",\"required\":true}," +
+                        "{\"title\":\"Estilo arquitetônico desejado\",\"required\":false}," +
+                        "{\"title\":\"Orçamento estimado\",\"required\":true}" +
+                        "]",
+                    CreatedAt = now
+                },
+                new Domain.Entities.BriefingTemplate
+                {
+                    Name = "Comercial / Misto",
+                    ItemsJson = "[" +
+                        "{\"title\":\"Atividade prevista\",\"required\":true}," +
+                        "{\"title\":\"Área total desejada (m²)\",\"required\":true}," +
+                        "{\"title\":\"Número de vagas de estacionamento\",\"required\":true}," +
+                        "{\"title\":\"Necessidades específicas (carga/descarga, fachada ativa, etc.)\",\"required\":false}" +
+                        "]",
+                    CreatedAt = now
+                }
+            );
+        }
+
+        db.SaveChanges();
     }
 
     /// <summary>

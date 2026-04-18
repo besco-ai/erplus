@@ -27,6 +27,7 @@ public class CrmDbContext : DbContext
             e.Property(x => x.Cnpj).HasMaxLength(20);
             e.Property(x => x.Cpf).HasMaxLength(15);
             e.Property(x => x.Phone).HasMaxLength(20);
+            e.Property(x => x.Cellphone).HasMaxLength(20);
             e.Property(x => x.Email).HasMaxLength(200);
             e.Property(x => x.City).HasMaxLength(100);
             e.Property(x => x.State).HasMaxLength(2);

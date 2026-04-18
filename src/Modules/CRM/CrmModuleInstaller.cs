@@ -105,5 +105,23 @@ public class CrmModuleInstaller : IModuleInstaller
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CrmDbContext>();
         db.Database.Migrate();
+        SeedContactTypes(db);
+    }
+
+    /// <summary>
+    /// Popula os 4 tipos de contato estruturais do artefato (Lead, Cliente,
+    /// Fornecedor, Relacionamento) quando a tabela está vazia. Idempotente.
+    /// </summary>
+    private static void SeedContactTypes(CrmDbContext db)
+    {
+        if (db.ContactTypes.Any()) return;
+        var now = DateTime.UtcNow;
+        db.ContactTypes.AddRange(
+            new Domain.Entities.ContactType { Name = "Lead",           Description = "Contato inicial, ainda não qualificado", CreatedAt = now },
+            new Domain.Entities.ContactType { Name = "Cliente",        Description = "Cliente ativo",                           CreatedAt = now },
+            new Domain.Entities.ContactType { Name = "Fornecedor",     Description = "Fornecedor de serviços ou materiais",     CreatedAt = now },
+            new Domain.Entities.ContactType { Name = "Relacionamento", Description = "Contato de relacionamento institucional", CreatedAt = now }
+        );
+        db.SaveChanges();
     }
 }

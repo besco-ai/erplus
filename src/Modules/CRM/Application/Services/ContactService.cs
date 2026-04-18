@@ -45,10 +45,10 @@ public class ContactService
             .Take(pageSize)
             .Select(c => new ContactDto(
                 c.Id, c.Type, c.PersonType, c.Name, c.Company,
-                c.Cnpj, c.Cpf, c.Phone, c.Email, c.City, c.State,
+                c.Cnpj, c.Cpf, c.Phone, c.Cellphone, c.Email, c.City, c.State,
                 c.Status, c.LinkedToId,
                 c.LinkedTo != null ? c.LinkedTo.Name : null,
-                c.Position, c.Birthday, c.CreatedAt,
+                c.Position, c.Birthday, c.Notes, c.CreatedAt,
                 c.Observations.Count, c.LinkedContacts.Count))
             .ToListAsync();
 
@@ -68,10 +68,10 @@ public class ContactService
 
         return Result<ContactDetailDto>.Success(new ContactDetailDto(
             contact.Id, contact.Type, contact.PersonType, contact.Name,
-            contact.Company, contact.Cnpj, contact.Cpf, contact.Phone,
+            contact.Company, contact.Cnpj, contact.Cpf, contact.Phone, contact.Cellphone,
             contact.Email, contact.City, contact.State, contact.Status,
             contact.LinkedToId, contact.LinkedTo?.Name, contact.Position,
-            contact.Birthday, contact.CreatedAt, contact.UpdatedAt,
+            contact.Birthday, contact.Notes, contact.CreatedAt, contact.UpdatedAt,
             contact.Observations.Select(o => new ContactObservationDto(
                 o.Id, o.ContactId, o.Title, o.Content, o.Date)).ToList(),
             contact.LinkedContacts.Select(lc => new ContactLinkedDto(
@@ -98,13 +98,15 @@ public class ContactService
             Cnpj = request.Cnpj?.Trim(),
             Cpf = request.Cpf?.Trim(),
             Phone = request.Phone?.Trim(),
+            Cellphone = request.Cellphone?.Trim(),
             Email = request.Email?.Trim().ToLower(),
             City = request.City?.Trim(),
             State = request.State?.Trim().ToUpper(),
             Status = request.Status ?? "Ativo",
             LinkedToId = request.LinkedToId,
             Position = request.Position?.Trim(),
-            Birthday = request.Birthday
+            Birthday = request.Birthday,
+            Notes = request.Notes?.Trim()
         };
 
         _db.Contacts.Add(contact);
@@ -112,9 +114,9 @@ public class ContactService
 
         return Result<ContactDto>.Created(new ContactDto(
             contact.Id, contact.Type, contact.PersonType, contact.Name,
-            contact.Company, contact.Cnpj, contact.Cpf, contact.Phone,
+            contact.Company, contact.Cnpj, contact.Cpf, contact.Phone, contact.Cellphone,
             contact.Email, contact.City, contact.State, contact.Status,
-            contact.LinkedToId, null, contact.Position, contact.Birthday,
+            contact.LinkedToId, null, contact.Position, contact.Birthday, contact.Notes,
             contact.CreatedAt, 0, 0));
     }
 
@@ -133,6 +135,7 @@ public class ContactService
         if (request.Cnpj is not null) contact.Cnpj = request.Cnpj.Trim();
         if (request.Cpf is not null) contact.Cpf = request.Cpf.Trim();
         if (request.Phone is not null) contact.Phone = request.Phone.Trim();
+        if (request.Cellphone is not null) contact.Cellphone = request.Cellphone.Trim();
         if (request.Email is not null) contact.Email = request.Email.Trim().ToLower();
         if (request.City is not null) contact.City = request.City.Trim();
         if (request.State is not null) contact.State = request.State.Trim().ToUpper();
@@ -140,6 +143,7 @@ public class ContactService
         if (request.LinkedToId is not null) contact.LinkedToId = request.LinkedToId;
         if (request.Position is not null) contact.Position = request.Position.Trim();
         if (request.Birthday is not null) contact.Birthday = request.Birthday;
+        if (request.Notes is not null) contact.Notes = request.Notes;
 
         contact.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -149,9 +153,9 @@ public class ContactService
 
         return Result<ContactDto>.Success(new ContactDto(
             contact.Id, contact.Type, contact.PersonType, contact.Name,
-            contact.Company, contact.Cnpj, contact.Cpf, contact.Phone,
+            contact.Company, contact.Cnpj, contact.Cpf, contact.Phone, contact.Cellphone,
             contact.Email, contact.City, contact.State, contact.Status,
-            contact.LinkedToId, linkedName, contact.Position, contact.Birthday,
+            contact.LinkedToId, linkedName, contact.Position, contact.Birthday, contact.Notes,
             contact.CreatedAt, 0, 0));
     }
 

@@ -94,5 +94,62 @@ public class DocumentsModuleInstaller : IModuleInstaller
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<DocumentsDbContext>();
         db.Database.Migrate();
+        SeedTemplates(db);
+    }
+
+    /// <summary>
+    /// Popula 2 templates de orçamento e 1 de contrato estruturais do
+    /// artefato (com placeholders {{cliente}}, {{valor_total}}, {{tabela_itens}}).
+    /// Idempotente — só insere em DB vazio.
+    /// </summary>
+    private static void SeedTemplates(DocumentsDbContext db)
+    {
+        if (db.Templates.Any()) return;
+        var now = DateTime.UtcNow;
+
+        db.Templates.AddRange(
+            new Domain.Entities.DocumentTemplate
+            {
+                Name = "Orçamento — Viabilidade Técnica",
+                Tipo = "orcamento",
+                Corpo =
+                    "Proposta de viabilidade para o cliente {{cliente}}.\n\n" +
+                    "Escopo: {{escopo}}\n" +
+                    "Valor total: {{valor_total}}\n" +
+                    "Forma de pagamento: {{forma_pagamento}}\n\n" +
+                    "Validade: {{validade}}",
+                Observacoes = "Template padrão para orçamentos de viabilidade.",
+                CreatedAt = now
+            },
+            new Domain.Entities.DocumentTemplate
+            {
+                Name = "Orçamento — Laudo Geotécnico",
+                Tipo = "orcamento",
+                Corpo =
+                    "Proposta de execução de laudo geotécnico — {{cliente}}.\n\n" +
+                    "Quantidade de furos SPT: {{qtd_furos}}\n" +
+                    "Endereço do terreno: {{endereco}}\n" +
+                    "Valor total: {{valor_total}}\n" +
+                    "Prazo de entrega: {{prazo}}",
+                Observacoes = "Use {{qtd_furos}} para definir o preço pela unidade.",
+                CreatedAt = now
+            },
+            new Domain.Entities.DocumentTemplate
+            {
+                Name = "Contrato — Prestação de Serviços",
+                Tipo = "contrato",
+                Corpo =
+                    "CONTRATO DE PRESTAÇÃO DE SERVIÇOS TÉCNICOS\n\n" +
+                    "Contratante: {{cliente}}\n" +
+                    "Contratada: {{empresa_razao_social}} — CNPJ {{empresa_cnpj}}\n" +
+                    "Objeto: {{objeto}}\n" +
+                    "Valor: {{valor_total}}\n" +
+                    "Vigência: de {{data_inicio}} a {{data_fim}}\n\n" +
+                    "As partes, por este instrumento, acordam as condições acima e demais cláusulas.",
+                Observacoes = "Preencha os campos {{empresa_razao_social}} e {{empresa_cnpj}} a partir das configurações da empresa.",
+                CreatedAt = now
+            }
+        );
+        db.SaveChanges();
     }
 }
