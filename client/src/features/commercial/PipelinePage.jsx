@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Plus, Search, X, Save, ChevronRight, TrendingUp, DollarSign,
-  FileText, Edit, Trash2, ArrowRight, Star, Filter,
+  FileText, Edit, Trash2, ArrowRight, Star, Filter, Settings,
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
@@ -268,6 +268,149 @@ function DealModal({ deal, onClose, onSaved }) {
   );
 }
 
+// ── Modais de gestão de pipeline ──
+
+function PipelineFormModal({ pipeline, onClose, onSaved }) {
+  const isEdit = !!pipeline;
+  const [name, setName] = useState(pipeline?.name || '');
+  const [stages, setStages] = useState(() => (
+    pipeline?.stages?.map((s) => ({
+      id: s.id,
+      name: s.name,
+      autoTasksJson: s.autoTasksJson || '',
+    })) || [{ name: 'Contato inicial', autoTasksJson: '' }]
+  ));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const updateStage = (idx, key, value) => {
+    setStages((curr) => curr.map((s, i) => (i === idx ? { ...s, [key]: value } : s)));
+  };
+  const addStage = () => setStages((c) => [...c, { name: '', autoTasksJson: '' }]);
+  const removeStage = (idx) => setStages((c) => c.filter((_, i) => i !== idx));
+
+  const handleSave = async () => {
+    setSaving(true); setError('');
+    try {
+      if (isEdit) {
+        await api.put(`/commercial/pipelines/${pipeline.id}`, { name });
+        // Diff de stages
+        const existingIds = new Set((pipeline.stages || []).map((s) => s.id));
+        const submittedIds = new Set(stages.filter((s) => s.id).map((s) => s.id));
+        for (let i = 0; i < stages.length; i++) {
+          const s = stages[i];
+          const payload = { name: s.name, order: i, autoTasksJson: s.autoTasksJson || null };
+          if (s.id) await api.put(`/commercial/stages/${s.id}`, payload);
+          else await api.post(`/commercial/pipelines/${pipeline.id}/stages`, payload);
+        }
+        for (const id of existingIds) {
+          if (!submittedIds.has(id)) {
+            try { await api.delete(`/commercial/stages/${id}`); }
+            catch (e) { console.warn('Não foi possível excluir etapa', id, e.response?.data?.error); }
+          }
+        }
+      } else {
+        await api.post('/commercial/pipelines', {
+          name,
+          stages: stages.map((s, i) => ({ name: s.name, order: i, autoTasksJson: s.autoTasksJson || null })),
+        });
+      }
+      onSaved();
+      onClose();
+    } catch (e) {
+      setError(e.response?.data?.error || 'Erro ao salvar');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h3 className="text-lg font-bold">{isEdit ? `Editar pipeline — ${pipeline.name}` : 'Novo Pipeline'}</h3>
+          <button onClick={onClose} className="p-1 text-gray-400"><X size={20} /></button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Nome do pipeline *</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ex.: Atendimento Inicial"
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+            />
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-500 uppercase">Etapas</label>
+              <button
+                onClick={addStage}
+                type="button"
+                className="text-xs font-semibold text-erplus-accent hover:underline flex items-center gap-1"
+              >
+                <Plus size={12} /> Adicionar etapa
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {stages.map((s, idx) => (
+                <div key={s.id ?? `new-${idx}`} className="border border-gray-200 rounded-lg p-3 space-y-2 bg-gray-50/50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 font-semibold w-6">#{idx + 1}</span>
+                    <input
+                      value={s.name}
+                      onChange={(e) => updateStage(idx, 'name', e.target.value)}
+                      placeholder="Nome da etapa"
+                      className="flex-1 px-2.5 py-2 border border-gray-200 rounded text-sm"
+                    />
+                    {stages.length > 1 && (
+                      <button
+                        onClick={() => removeStage(idx)}
+                        type="button"
+                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">
+                      Tarefas automáticas (JSON array, opcional)
+                    </label>
+                    <input
+                      value={s.autoTasksJson}
+                      onChange={(e) => updateStage(idx, 'autoTasksJson', e.target.value)}
+                      placeholder='Ex.: ["Primeiro contato","Enviar apresentação"]'
+                      className="w-full px-2.5 py-1.5 border border-gray-200 rounded text-xs font-mono"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
+
+        <div className="flex justify-end gap-2 mt-6">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !name.trim()}
+            className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg disabled:opacity-50 flex items-center gap-2"
+          >
+            <Save size={14} />{saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PipelinePage({ mine = false }) {
   const [searchParams] = useSearchParams();
   const pipelineQueryId = searchParams.get('pipeline');
@@ -278,6 +421,7 @@ export default function PipelinePage({ mine = false }) {
   const [loading, setLoading] = useState(true);
   const [selectedDeal, setSelectedDeal] = useState(null);
   const [draggedDealId, setDraggedDealId] = useState(null);
+  const [pipelineModal, setPipelineModal] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -336,22 +480,59 @@ export default function PipelinePage({ mine = false }) {
             {activeDeals.length} negócio(s) ativo(s) · {R$(totalValue)} em pipeline
           </p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
-          <Plus size={16} /> Novo Negócio
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPipelineModal('new')}
+            className="flex items-center gap-2 px-3 py-2 border border-gray-200 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50 transition"
+          >
+            <Plus size={14} /> Novo Pipeline
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+            <Plus size={16} /> Novo Negócio
+          </button>
+        </div>
       </div>
 
       {/* Pipeline tabs */}
-      {pipelines.length > 1 && (
-        <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
-          {pipelines.map((p) => (
-            <button key={p.id} onClick={() => setActivePipeline(p.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                activePipeline === p.id ? 'bg-white text-erplus-accent shadow-sm' : 'text-gray-500 hover:text-gray-700'
-              }`}>
-              {p.name}
-            </button>
-          ))}
+      {pipelines.length > 0 && (
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1 bg-gray-100 rounded-lg p-1 flex-1 overflow-x-auto">
+            {pipelines.map((p) => (
+              <button key={p.id} onClick={() => setActivePipeline(p.id)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition ${
+                  activePipeline === p.id ? 'bg-white text-erplus-accent shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}>
+                {p.name}
+              </button>
+            ))}
+          </div>
+          {currentPipeline && (
+            <>
+              <button
+                onClick={() => setPipelineModal(currentPipeline)}
+                title="Editar pipeline e etapas"
+                className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+              >
+                <Settings size={16} />
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Excluir o pipeline "${currentPipeline.name}"? Essa ação não pode ser desfeita.`)) return;
+                  try {
+                    await api.delete(`/commercial/pipelines/${currentPipeline.id}`);
+                    setActivePipeline(null);
+                    fetchData();
+                  } catch (e) {
+                    alert(e.response?.data?.error || 'Erro ao excluir pipeline');
+                  }
+                }}
+                title="Excluir pipeline"
+                className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"
+              >
+                <Trash2 size={16} />
+              </button>
+            </>
+          )}
         </div>
       )}
 
@@ -377,6 +558,14 @@ export default function PipelinePage({ mine = false }) {
       {/* Deal detail modal */}
       {selectedDeal && (
         <DealModal deal={selectedDeal} onClose={() => setSelectedDeal(null)} onSaved={fetchData} />
+      )}
+
+      {pipelineModal && (
+        <PipelineFormModal
+          pipeline={pipelineModal === 'new' ? null : pipelineModal}
+          onClose={() => setPipelineModal(null)}
+          onSaved={fetchData}
+        />
       )}
     </div>
   );

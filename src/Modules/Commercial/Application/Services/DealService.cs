@@ -203,6 +203,9 @@ public class DealService
         // gera o empreendimento automaticamente.
         await CreateProjectFromDealAsync(deal);
 
+        // Automation engine: trigger deal_won
+        await RunAutomationsAsync(deal, "deal_won", null);
+
         return Result<bool>.Success(true);
     }
 
@@ -366,7 +369,34 @@ public class DealService
                 }
                 break;
 
-            // Outras ações (load_diligence etc) podem ser adicionadas aqui.
+            case "load_diligence":
+                if (rule.DiligenceTemplateId.HasValue)
+                {
+                    // Clona items do template como uma DealDiligence nova, com
+                    // items ainda não concluídos. Se já existir uma diligência
+                    // para esse template no deal, não duplica.
+                    var already = await _db.DealDiligences
+                        .AnyAsync(d => d.DealId == deal.Id && d.TemplateId == rule.DiligenceTemplateId.Value);
+                    if (!already)
+                    {
+                        var template = await _db.DiligenceTemplates
+                            .FirstOrDefaultAsync(t => t.Id == rule.DiligenceTemplateId.Value);
+                        if (template is not null)
+                        {
+                            _db.DealDiligences.Add(new DealDiligence
+                            {
+                                DealId = deal.Id,
+                                TemplateId = template.Id,
+                                ItemsJson = template.ItemsJson,
+                                CreatedAt = DateTime.UtcNow
+                            });
+                            AddTimeline(deal.Id, "diligence",
+                                $"Diligência \"{template.Name}\" carregada pela automação");
+                        }
+                    }
+                }
+                break;
+
             default:
                 break;
         }
@@ -410,13 +440,63 @@ public class DealService
         if (string.IsNullOrWhiteSpace(r.Name)) return Result<PipelineDto>.Failure("Nome é obrigatório");
         var maxOrder = await _db.Pipelines.MaxAsync(p => (int?)p.Order) ?? -1;
         var pipeline = new Pipeline { Name = r.Name.Trim(), Order = maxOrder + 1 };
-        var stage = new PipelineStage { Name = "Nova etapa", Order = 0, Pipeline = pipeline };
         _db.Pipelines.Add(pipeline);
-        _db.PipelineStages.Add(stage);
+
+        // Stages opcionais no payload de criação. Se o caller não mandar nada,
+        // cria um stage padrão pra pipeline não nascer vazio.
+        var stages = new List<PipelineStage>();
+        var payloadStages = (r.Stages is { Count: > 0 }) ? r.Stages
+            : new List<CreateStageRequest> { new("Nova etapa", 0, null) };
+
+        foreach (var s in payloadStages)
+        {
+            var stage = new PipelineStage
+            {
+                Name = string.IsNullOrWhiteSpace(s.Name) ? "Etapa" : s.Name.Trim(),
+                Order = s.Order,
+                AutoTasksJson = s.AutoTasksJson,
+                Pipeline = pipeline
+            };
+            _db.PipelineStages.Add(stage);
+            stages.Add(stage);
+        }
         await _db.SaveChangesAsync();
 
         return Result<PipelineDto>.Created(new PipelineDto(pipeline.Id, pipeline.Name, pipeline.Order,
-            new List<PipelineStageDto> { new(stage.Id, stage.Name, 0, null, 0, 0) }));
+            stages.OrderBy(s => s.Order)
+                  .Select(s => new PipelineStageDto(s.Id, s.Name, s.Order, s.AutoTasksJson, 0, 0))
+                  .ToList()));
+    }
+
+    public async Task<Result<PipelineDto>> UpdatePipelineAsync(int id, UpdatePipelineRequest r)
+    {
+        var pipeline = await _db.Pipelines.Include(p => p.Stages).FirstOrDefaultAsync(p => p.Id == id);
+        if (pipeline is null) return Result<PipelineDto>.NotFound();
+        if (!string.IsNullOrWhiteSpace(r.Name)) pipeline.Name = r.Name.Trim();
+        if (r.Order.HasValue) pipeline.Order = r.Order.Value;
+        pipeline.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<PipelineDto>.Success(new PipelineDto(pipeline.Id, pipeline.Name, pipeline.Order,
+            pipeline.Stages.OrderBy(s => s.Order)
+                .Select(s => new PipelineStageDto(s.Id, s.Name, s.Order, s.AutoTasksJson, 0, 0))
+                .ToList()));
+    }
+
+    public async Task<Result<bool>> DeletePipelineAsync(int id)
+    {
+        var pipeline = await _db.Pipelines.Include(p => p.Stages).FirstOrDefaultAsync(p => p.Id == id);
+        if (pipeline is null) return Result<bool>.NotFound();
+
+        // Guarda: não pode remover um pipeline que ainda tem negócios vinculados
+        var hasDeals = await _db.Deals.AnyAsync(d => d.PipelineId == id);
+        if (hasDeals)
+            return Result<bool>.Failure(
+                "Pipeline possui negócios. Mova ou remova-os antes de excluir.", 400);
+
+        _db.PipelineStages.RemoveRange(pipeline.Stages);
+        _db.Pipelines.Remove(pipeline);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 
     public async Task<Result<PipelineStageDto>> AddStageAsync(int pipelineId, CreateStageRequest r)
@@ -424,10 +504,45 @@ public class DealService
         var pipeline = await _db.Pipelines.FindAsync(pipelineId);
         if (pipeline is null) return Result<PipelineStageDto>.NotFound("Pipeline não encontrado");
 
-        var stage = new PipelineStage { PipelineId = pipelineId, Name = r.Name.Trim(), Order = r.Order };
+        var stage = new PipelineStage
+        {
+            PipelineId = pipelineId,
+            Name = r.Name.Trim(),
+            Order = r.Order,
+            AutoTasksJson = r.AutoTasksJson
+        };
         _db.PipelineStages.Add(stage);
         await _db.SaveChangesAsync();
 
-        return Result<PipelineStageDto>.Created(new PipelineStageDto(stage.Id, stage.Name, stage.Order, null, 0, 0));
+        return Result<PipelineStageDto>.Created(
+            new PipelineStageDto(stage.Id, stage.Name, stage.Order, stage.AutoTasksJson, 0, 0));
+    }
+
+    public async Task<Result<PipelineStageDto>> UpdateStageAsync(int stageId, UpdateStageRequest r)
+    {
+        var stage = await _db.PipelineStages.FindAsync(stageId);
+        if (stage is null) return Result<PipelineStageDto>.NotFound();
+        if (!string.IsNullOrWhiteSpace(r.Name)) stage.Name = r.Name.Trim();
+        if (r.Order.HasValue) stage.Order = r.Order.Value;
+        if (r.AutoTasksJson is not null) stage.AutoTasksJson = r.AutoTasksJson;
+        stage.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<PipelineStageDto>.Success(
+            new PipelineStageDto(stage.Id, stage.Name, stage.Order, stage.AutoTasksJson, 0, 0));
+    }
+
+    public async Task<Result<bool>> DeleteStageAsync(int stageId)
+    {
+        var stage = await _db.PipelineStages.FindAsync(stageId);
+        if (stage is null) return Result<bool>.NotFound();
+
+        var hasDeals = await _db.Deals.AnyAsync(d => d.StageId == stageId);
+        if (hasDeals)
+            return Result<bool>.Failure(
+                "Etapa possui negócios. Mova ou remova-os antes de excluir.", 400);
+
+        _db.PipelineStages.Remove(stage);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 }

@@ -1,3 +1,4 @@
+using ERPlus.Modules.Automation.Infrastructure.Data;
 using ERPlus.Modules.Tasks.Domain.Entities;
 using ERPlus.Modules.Tasks.Infrastructure.Data;
 using ERPlus.Shared.Application;
@@ -8,10 +9,15 @@ namespace ERPlus.Modules.Tasks.Application.Services;
 public class TaskService
 {
     private readonly TasksDbContext _db;
+    private readonly AutomationDbContext _automation;
     private static readonly HashSet<string> ValidStatuses = new()
         { "Não iniciado", "Em andamento", "Em revisão", "Finalizado" };
 
-    public TaskService(TasksDbContext db) => _db = db;
+    public TaskService(TasksDbContext db, AutomationDbContext automation)
+    {
+        _db = db;
+        _automation = automation;
+    }
 
     public async Task<Result<TaskSummaryDto>> GetSummaryAsync(int? responsibleId)
     {
@@ -99,6 +105,8 @@ public class TaskService
         var task = await _db.Tasks.FindAsync(id);
         if (task is null) return Result<TaskDto>.NotFound();
 
+        var wasFinalized = task.Status == "Finalizado";
+
         if (r.Title is not null) task.Title = r.Title.Trim();
         if (r.Description is not null) task.Description = r.Description.Trim();
         if (r.Status is not null)
@@ -115,12 +123,48 @@ public class TaskService
         task.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
+        // Automation engine: dispara trigger task_complete na transição para
+        // Finalizado. Tasks tem acesso apenas a AutomationDbContext e TasksDbContext
+        // (para evitar referência circular com Commercial), portanto só executa
+        // a ação create_task — ações que precisam do contexto de deal
+        // (move_pipeline, load_diligence) são silenciosamente puladas aqui.
+        if (!wasFinalized && task.Status == "Finalizado")
+        {
+            await RunTaskCompleteAutomationsAsync(task);
+        }
+
         var today = DateTime.UtcNow.Date;
         return Result<TaskDto>.Success(new TaskDto(
             task.Id, task.DealId, task.ProjectId, task.Title, task.Description,
             task.Status, task.ResponsibleId, task.Due, task.SubtasksJson,
             task.Category, task.CreatedAt,
             task.Status != "Finalizado" && task.Due.HasValue && task.Due.Value.Date < today));
+    }
+
+    private async Task RunTaskCompleteAutomationsAsync(TaskItem completed)
+    {
+        var rules = await _automation.Rules
+            .Where(r => r.Active && r.Trigger == "task_complete" && r.Action == "create_task")
+            .ToListAsync();
+
+        foreach (var rule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.TaskTitle)) continue;
+            try
+            {
+                _db.Tasks.Add(new TaskItem
+                {
+                    Title = rule.TaskTitle,
+                    DealId = completed.DealId,
+                    ProjectId = completed.ProjectId,
+                    ResponsibleId = completed.ResponsibleId,
+                    Status = "Não iniciado",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
+            catch { /* swallow — regra inválida não deve quebrar o update */ }
+        }
+        await _db.SaveChangesAsync();
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)

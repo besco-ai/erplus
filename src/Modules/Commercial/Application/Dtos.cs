@@ -34,8 +34,10 @@ public record MoveDealRequest(int StageId, int? PipelineId);
 // ── Pipeline ──
 public record PipelineDto(int Id, string Name, int Order, List<PipelineStageDto> Stages);
 public record PipelineStageDto(int Id, string Name, int Order, string? AutoTasksJson, int DealCount, decimal TotalValue);
-public record CreatePipelineRequest(string Name);
-public record CreateStageRequest(string Name, int Order);
+public record CreatePipelineRequest(string Name, List<CreateStageRequest>? Stages);
+public record UpdatePipelineRequest(string? Name, int? Order);
+public record CreateStageRequest(string Name, int Order, string? AutoTasksJson);
+public record UpdateStageRequest(string? Name, int? Order, string? AutoTasksJson);
 
 // ── Quote ──
 public record QuoteDto(

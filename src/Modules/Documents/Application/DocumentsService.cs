@@ -11,6 +11,8 @@ public record CreateAttachmentRequest(string EntityType, int EntityId, string La
 public record TemplateDto(int Id, string Name, string Tipo, string Corpo, string? Observacoes);
 public record CreateTemplateRequest(string Name, string Tipo, string Corpo, string? Observacoes);
 public record UpdateTemplateRequest(string? Name, string? Tipo, string? Corpo, string? Observacoes);
+public record RenderTemplateRequest(Dictionary<string, string?>? Variables);
+public record RenderedTemplateDto(int Id, string Name, string Tipo, string Rendered, List<string> UnknownPlaceholders);
 public record TimelineEntryDto(int Id, int? DealId, int? ProjectId, DateTime Date, string Type, string Text);
 public record CreateTimelineRequest(int? DealId, int? ProjectId, string Type, string Text);
 
@@ -89,6 +91,33 @@ public class DocumentsService
         _db.Templates.Remove(t);
         await _db.SaveChangesAsync();
         return Result<bool>.Success(true);
+    }
+
+    /// <summary>
+    /// Aplica um template: substitui cada marcador <c>{{nome}}</c> pelo valor
+    /// correspondente em <paramref name="req.Variables"/>. Marcadores não
+    /// mapeados são mantidos literalmente e retornados em UnknownPlaceholders
+    /// — assim o cliente pode avisar sobre o que falta preencher.
+    /// </summary>
+    public async Task<Result<RenderedTemplateDto>> RenderTemplateAsync(int id, RenderTemplateRequest req)
+    {
+        var t = await _db.Templates.FindAsync(id);
+        if (t is null) return Result<RenderedTemplateDto>.NotFound();
+
+        var vars = req.Variables ?? new Dictionary<string, string?>();
+        var placeholderRegex = new System.Text.RegularExpressions.Regex(@"\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}");
+        var unknown = new HashSet<string>(StringComparer.Ordinal);
+
+        var rendered = placeholderRegex.Replace(t.Corpo ?? string.Empty, m =>
+        {
+            var key = m.Groups[1].Value;
+            if (vars.TryGetValue(key, out var val) && val is not null) return val;
+            unknown.Add(key);
+            return m.Value; // mantém {{campo}} literal
+        });
+
+        return Result<RenderedTemplateDto>.Success(new RenderedTemplateDto(
+            t.Id, t.Name, t.Tipo, rendered, unknown.OrderBy(x => x).ToList()));
     }
 
     // Timeline

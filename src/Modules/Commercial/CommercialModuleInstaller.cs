@@ -1,5 +1,6 @@
 using ERPlus.Modules.Commercial.Application;
 using ERPlus.Modules.Commercial.Application.Services;
+using ERPlus.Modules.Commercial.Domain.Entities;
 using ERPlus.Modules.Commercial.Infrastructure.Data;
 using ERPlus.Shared.Contracts;
 using Microsoft.AspNetCore.Builder;
@@ -94,10 +95,42 @@ public class CommercialModuleInstaller : IModuleInstaller
             return r.IsSuccess ? Results.Created($"/api/commercial/pipelines/{r.Data!.Id}", r.Data) : Results.BadRequest(new { error = r.Error });
         });
 
+        group.MapPut("/pipelines/{id:int}", async (int id, UpdatePipelineRequest req, DealService svc) =>
+        {
+            var r = await svc.UpdatePipelineAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data)
+                : r.StatusCode == 404 ? Results.NotFound()
+                : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapDelete("/pipelines/{id:int}", async (int id, DealService svc) =>
+        {
+            var r = await svc.DeletePipelineAsync(id);
+            return r.IsSuccess ? Results.NoContent()
+                : r.StatusCode == 404 ? Results.NotFound()
+                : Results.BadRequest(new { error = r.Error });
+        });
+
         group.MapPost("/pipelines/{id:int}/stages", async (int id, CreateStageRequest req, DealService svc) =>
         {
             var r = await svc.AddStageAsync(id, req);
             return r.IsSuccess ? Results.Created("", r.Data) : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapPut("/stages/{id:int}", async (int id, UpdateStageRequest req, DealService svc) =>
+        {
+            var r = await svc.UpdateStageAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data)
+                : r.StatusCode == 404 ? Results.NotFound()
+                : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapDelete("/stages/{id:int}", async (int id, DealService svc) =>
+        {
+            var r = await svc.DeleteStageAsync(id);
+            return r.IsSuccess ? Results.NoContent()
+                : r.StatusCode == 404 ? Results.NotFound()
+                : Results.BadRequest(new { error = r.Error });
         });
 
         // ── Quotes ──
@@ -185,6 +218,37 @@ public class CommercialModuleInstaller : IModuleInstaller
         group.MapGet("/business-types", async (CommercialDbContext db) =>
             Results.Ok(await db.BusinessTypes.OrderBy(b => b.Name)
                 .Select(b => new BusinessTypeDto(b.Id, b.Name, b.Description)).ToListAsync()));
+
+        group.MapPost("/business-types", async (CreateBusinessTypeRequest r, CommercialDbContext db) =>
+        {
+            if (string.IsNullOrWhiteSpace(r.Name))
+                return Results.BadRequest(new { error = "Nome é obrigatório" });
+            var bt = new BusinessType { Name = r.Name.Trim(), Description = r.Description };
+            db.BusinessTypes.Add(bt);
+            await db.SaveChangesAsync();
+            return Results.Created($"/api/commercial/business-types/{bt.Id}",
+                new BusinessTypeDto(bt.Id, bt.Name, bt.Description));
+        });
+
+        group.MapPut("/business-types/{id:int}", async (int id, CreateBusinessTypeRequest r, CommercialDbContext db) =>
+        {
+            var bt = await db.BusinessTypes.FindAsync(id);
+            if (bt is null) return Results.NotFound();
+            if (!string.IsNullOrWhiteSpace(r.Name)) bt.Name = r.Name.Trim();
+            if (r.Description is not null) bt.Description = r.Description;
+            bt.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.Ok(new BusinessTypeDto(bt.Id, bt.Name, bt.Description));
+        });
+
+        group.MapDelete("/business-types/{id:int}", async (int id, CommercialDbContext db) =>
+        {
+            var bt = await db.BusinessTypes.FindAsync(id);
+            if (bt is null) return Results.NotFound();
+            db.BusinessTypes.Remove(bt);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
+        });
     }
 
     public void UsePipeline(IApplicationBuilder app)
@@ -192,5 +256,41 @@ public class CommercialModuleInstaller : IModuleInstaller
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<CommercialDbContext>();
         db.Database.Migrate();
+        SeedInitialPipelines(db);
+    }
+
+    /// <summary>
+    /// Popula os 3 pipelines padrão do artefato quando o módulo Commercial
+    /// nasce sem nenhum pipeline cadastrado. São considerados estrutura
+    /// (não demo data): o sistema precisa de ao menos um pipeline para os
+    /// negócios se encaixarem, e esses três refletem o fluxo descrito no
+    /// artefato de UI. Uma vez que exista qualquer pipeline, esta rotina
+    /// é idempotente — não altera nada.
+    /// </summary>
+    private static void SeedInitialPipelines(CommercialDbContext db)
+    {
+        if (db.Pipelines.Any()) return;
+
+        var now = DateTime.UtcNow;
+        var atendimento = new Domain.Entities.Pipeline { Name = "Atendimento Inicial", Order = 0, CreatedAt = now };
+        var consultoria = new Domain.Entities.Pipeline { Name = "Consultoria & Captação", Order = 1, CreatedAt = now };
+        var definicao   = new Domain.Entities.Pipeline { Name = "Definição & Contratação", Order = 2, CreatedAt = now };
+        db.Pipelines.AddRange(atendimento, consultoria, definicao);
+
+        db.PipelineStages.AddRange(
+            new Domain.Entities.PipelineStage { Pipeline = atendimento, Name = "Contato inicial",  Order = 0, AutoTasksJson = "[\"Primeiro contato\",\"Enviar apresentação\"]", CreatedAt = now },
+            new Domain.Entities.PipelineStage { Pipeline = atendimento, Name = "Envio de proposta", Order = 1, AutoTasksJson = "[\"Elaborar proposta\"]", CreatedAt = now },
+            new Domain.Entities.PipelineStage { Pipeline = atendimento, Name = "Follow-up",        Order = 2, CreatedAt = now },
+            new Domain.Entities.PipelineStage { Pipeline = atendimento, Name = "Negociação",       Order = 3, CreatedAt = now },
+            new Domain.Entities.PipelineStage { Pipeline = atendimento, Name = "Fechamento",       Order = 4, AutoTasksJson = "[\"Gerar contrato\"]", CreatedAt = now },
+
+            new Domain.Entities.PipelineStage { Pipeline = consultoria, Name = "Consulta inicial", Order = 0, AutoTasksJson = "[\"Agendar reunião\"]", CreatedAt = now },
+            new Domain.Entities.PipelineStage { Pipeline = consultoria, Name = "Análise técnica",  Order = 1, CreatedAt = now },
+            new Domain.Entities.PipelineStage { Pipeline = consultoria, Name = "Entrega",          Order = 2, CreatedAt = now },
+
+            new Domain.Entities.PipelineStage { Pipeline = definicao,   Name = "Briefing",         Order = 0, AutoTasksJson = "[\"Coletar briefing\"]", CreatedAt = now }
+        );
+
+        db.SaveChanges();
     }
 }

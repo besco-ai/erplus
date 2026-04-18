@@ -10,5 +10,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared\ERPlus.Shared.csproj" />
+    <ProjectReference Include="..\Automation\ERPlus.Modules.Automation.csproj" />
   </ItemGroup>
 </Project>

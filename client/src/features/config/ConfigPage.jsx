@@ -236,27 +236,80 @@ function ContactTypesTab() {
 
 function BusinessTypesTab() {
   const [items, setItems] = useState([]);
+  const [modal, setModal] = useState(null);
   const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    (async () => {
-      try {
-        const r = await api.get('/commercial/business-types');
-        setItems(r.data);
-      } finally { setLoading(false); }
-    })();
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/commercial/business-types');
+      setItems(r.data);
+    } finally { setLoading(false); }
   }, []);
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const remove = async (id) => {
+    if (!confirm('Excluir este tipo? Negócios associados podem ficar sem referência.')) return;
+    await api.delete(`/commercial/business-types/${id}`);
+    fetch();
+  };
+
+  const save = async (form) => {
+    const payload = { name: form.name, description: form.description || null };
+    if (modal && modal !== 'new') await api.put(`/commercial/business-types/${modal.id}`, payload);
+    else await api.post('/commercial/business-types', payload);
+    fetch();
+  };
 
   return (
     <>
-      <p className="text-sm text-gray-500 mb-4">Tipos de negócio (visualização — edição via API)</p>
-      {loading ? <div className="text-center py-12 text-gray-400">Carregando...</div> : (
-        <SimpleList
-          items={items}
-          columns={[
-            { key: 'name', label: 'Nome' },
-            { key: 'description', label: 'Descrição', fallback: '—' },
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">Categorias de negócio (Viabilidade, Laudo, Projeto, etc)</p>
+        <button onClick={() => setModal('new')} className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700">
+          <Plus size={16} /> Novo Tipo
+        </button>
+      </div>
+      {loading ? <div className="text-center py-12 text-gray-400">Carregando...</div> : items.length === 0 ? (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center text-gray-400 text-sm">
+          Nenhum tipo cadastrado
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <table className="w-full">
+            <thead>
+              <tr className="bg-gray-50/80 border-b border-gray-100">
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Nome</th>
+                <th className="text-left px-5 py-3 text-xs font-bold text-gray-500 uppercase">Descrição</th>
+                <th className="text-right px-5 py-3 text-xs font-bold text-gray-500 uppercase">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((b) => (
+                <tr key={b.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                  <td className="px-5 py-3 text-sm font-semibold">{b.name}</td>
+                  <td className="px-5 py-3 text-sm text-gray-600">{b.description || '—'}</td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setModal(b)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
+                      <button onClick={() => remove(b.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {modal && (
+        <SimpleFormModal
+          title={modal === 'new' ? 'Novo Tipo de Negócio' : 'Editar Tipo de Negócio'}
+          fields={[
+            { key: 'name', label: 'Nome', required: true },
+            { key: 'description', label: 'Descrição', type: 'textarea' },
           ]}
-          emptyLabel="Nenhum tipo cadastrado"
+          initial={modal === 'new' ? null : modal}
+          onClose={() => setModal(null)}
+          onSubmit={save}
         />
       )}
     </>
@@ -484,11 +537,91 @@ function AutomationsTab() {
   );
 }
 
+const EMPRESA_FIELDS = [
+  { key: 'razao_social', label: 'Razão social' },
+  { key: 'nome_fantasia', label: 'Nome fantasia' },
+  { key: 'cnpj', label: 'CNPJ', placeholder: '00.000.000/0000-00' },
+  { key: 'crea', label: 'Registro profissional', placeholder: 'Ex.: CREA-SC 000000-0' },
+  { key: 'endereco', label: 'Endereço', type: 'textarea' },
+  { key: 'telefone', label: 'Telefone' },
+  { key: 'email', label: 'E-mail' },
+  { key: 'site', label: 'Site' },
+  { key: 'logo_url', label: 'URL do logotipo' },
+];
+
 function EmpresaTab() {
+  const [values, setValues] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [feedback, setFeedback] = useState(null);
+
+  const fetch = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await api.get('/config/settings');
+      const map = {};
+      for (const s of r.data) map[s.key] = s.value;
+      setValues(map);
+    } finally { setLoading(false); }
+  }, []);
+  useEffect(() => { fetch(); }, [fetch]);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setFeedback(null);
+    try {
+      for (const f of EMPRESA_FIELDS) {
+        await api.post('/config/settings', { key: f.key, value: values[f.key] ?? '' });
+      }
+      setFeedback({ ok: true, msg: 'Dados salvos' });
+    } catch (e) {
+      setFeedback({ ok: false, msg: e.response?.data?.error || 'Erro ao salvar' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) return <div className="text-center py-12 text-gray-400">Carregando...</div>;
+
   return (
-    <div className="bg-white rounded-xl shadow-sm p-10 text-center">
-      <div className="text-sm text-gray-400 mb-2">Dados da empresa (razão social, CNPJ, endereço, logo)</div>
-      <div className="text-xs text-gray-300">Em breve</div>
+    <div className="bg-white rounded-xl shadow-sm p-6 space-y-4 max-w-3xl">
+      <p className="text-sm text-gray-500 mb-2">Dados usados em cabeçalhos de PDF, contratos e comunicação institucional.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {EMPRESA_FIELDS.map((f) => (
+          <div key={f.key} className={f.type === 'textarea' ? 'md:col-span-2' : ''}>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{f.label}</label>
+            {f.type === 'textarea' ? (
+              <textarea
+                value={values[f.key] ?? ''}
+                onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+                rows={2}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none"
+              />
+            ) : (
+              <input
+                value={values[f.key] ?? ''}
+                placeholder={f.placeholder || ''}
+                onChange={(e) => setValues({ ...values, [f.key]: e.target.value })}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      {feedback && (
+        <div className={`text-sm p-3 rounded-lg ${feedback.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+          {feedback.msg}
+        </div>
+      )}
+      <div className="flex justify-end">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg disabled:opacity-50 flex items-center gap-2 hover:bg-red-700"
+        >
+          <Save size={14} />{saving ? 'Salvando...' : 'Salvar'}
+        </button>
+      </div>
     </div>
   );
 }
