@@ -1,0 +1,90 @@
+# ══════════════════════════════════════════════════════════════════
+# ERPlus — docker-compose de produção
+# ══════════════════════════════════════════════════════════════════
+#
+# Usado na VPS, consome imagens publicadas do GHCR (sem build local).
+# Postgres só é alcançável pela rede interna do compose — nunca exposto
+# à internet. Caddy é o único serviço com portas publicadas (80/443) e
+# cuida de HTTPS automático via Let's Encrypt.
+#
+# Uso:
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d
+#
+# Update de versão (usa :latest, que aponta pro release mais novo):
+#   docker compose -f docker-compose.prod.yml pull
+#   docker compose -f docker-compose.prod.yml up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: erplus-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # Sem portas expostas ao host — acessível apenas pela rede Docker.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: ghcr.io/besco-ai/erplus-api:latest
+    container_name: erplus-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}"
+      Jwt__Key: ${JWT_SECRET_KEY}
+      Jwt__Issuer: ${JWT_ISSUER:-ERPlus}
+      Jwt__Audience: ${JWT_AUDIENCE:-ERPlus}
+      Client__Url: ${CLIENT_URL}
+    volumes:
+      - api-logs:/app/logs
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  client:
+    image: ghcr.io/besco-ai/erplus-client:latest
+    container_name: erplus-client
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: erplus-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+      - client
+
+volumes:
+  pgdata:
+  api-logs:
+  caddy-data:
+  caddy-config:
