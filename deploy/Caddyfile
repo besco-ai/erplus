@@ -1,0 +1,33 @@
+# ERPlus — Caddy reverse proxy com HTTPS automático
+#
+# Variáveis substituídas pelo docker-compose (via environment):
+#   {$DOMAIN}             → ex.: erplus.besco.ai
+#   {$LETSENCRYPT_EMAIL}  → ex.: admin@besco.ai (pra Let's Encrypt avisar de expiração)
+
+{$DOMAIN} {
+    encode gzip zstd
+    log {
+        output stdout
+        format console
+    }
+
+    # Certificado Let's Encrypt automático — renovação a cada ~60 dias.
+    tls {$LETSENCRYPT_EMAIL}
+
+    # API e Swagger vão pro container `api` na porta 8080.
+    # Ordem importa — rotas mais específicas antes da default.
+    handle /api/* {
+        reverse_proxy api:8080
+    }
+    handle /swagger* {
+        reverse_proxy api:8080
+    }
+    handle /health* {
+        reverse_proxy api:8080
+    }
+
+    # Todo o resto é o SPA React servido pelo nginx do container `client`.
+    handle {
+        reverse_proxy client:80
+    }
+}
