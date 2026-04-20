@@ -1,4 +1,6 @@
 name: Release
+# Nota: este workflow não depende mais do global.json — o Dockerfile usa
+# a imagem mcr.microsoft.com/dotnet/sdk:10.0-preview diretamente.
 
 # Dispara ao receber uma tag começando com "v" (ex.: v1.0.0, v1.2.3).
 # Builda as imagens Docker, pusha pro GitHub Container Registry com
