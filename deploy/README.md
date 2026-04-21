@@ -2,7 +2,7 @@
 
 Stack de deploy do ERPlus em uma VPS única com Docker. Usa as imagens
 publicadas em `ghcr.io/besco-ai/erplus-*` — republicadas a cada push em
-`main` pelo workflow `Publish`.
+`main` pelo workflow `ERPlus CI` (job `Docker`).
 
 ## Arquitetura
 
@@ -68,9 +68,10 @@ com as credenciais seed (giovanio / admin123).
 
 O fluxo padrão é pelo GitHub Actions — não precisa entrar na VPS:
 
-1. Mergeia o PR em `main`. O workflow **Publish** builda as 3 imagens e
-   empurra pro GHCR como `:latest` + `:sha-<short-sha>` (em ~3 min).
-2. Quando o Publish terminar, dispara o workflow **Deploy Production**
+1. Mergeia o PR em `main`. O workflow **ERPlus CI** (job `Docker`)
+   builda as 3 imagens e empurra pro GHCR como `:latest` + `:sha-<short-sha>`
+   (em ~3 min).
+2. Quando o CI terminar, dispara o workflow **Deploy Production**
    manualmente (Actions → Deploy Production → Run workflow). Ele roda
    migrations com gate e só rola API + Client se tudo passar.
 
