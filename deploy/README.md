@@ -1,7 +1,8 @@
 # Deploy em produção
 
 Stack de deploy do ERPlus em uma VPS única com Docker. Usa as imagens
-publicadas em `ghcr.io/besco-ai/erplus-*` quando uma tag `v*` é criada.
+publicadas em `ghcr.io/besco-ai/erplus-*` — republicadas a cada push em
+`main` pelo workflow `Publish`.
 
 ## Arquitetura
 
@@ -65,19 +66,29 @@ com as credenciais seed (giovanio / admin123).
 
 ## Atualizar para nova versão
 
-Quando uma nova tag `v*.*.*` é publicada no GitHub, o workflow CI já
-empurrou as imagens novas. Basta:
+O fluxo padrão é pelo GitHub Actions — não precisa entrar na VPS:
+
+1. Mergeia o PR em `main`. O workflow **Publish** builda as 3 imagens e
+   empurra pro GHCR como `:latest` + `:sha-<short-sha>` (em ~3 min).
+2. Quando o Publish terminar, dispara o workflow **Deploy Production**
+   manualmente (Actions → Deploy Production → Run workflow). Ele roda
+   migrations com gate e só rola API + Client se tudo passar.
+
+Precisou fazer manual direto na VPS (ex.: debug):
 
 ```bash
 ssh root@SEU_IP
-bash /opt/erplus/deploy.sh
-# ou manualmente:
 cd /opt/erplus && docker compose pull && docker compose up -d
 ```
 
-A tag `:latest` sempre aponta para o release mais recente. Se quiser
-pinar numa versão específica, edita `docker-compose.yml` trocando
-`:latest` por `:1.0.0` (por exemplo) antes do `up -d`.
+### Rollback
+
+Cada push em main gera uma tag imutável `:sha-<short-sha>` no GHCR.
+Pra voltar pra um estado anterior conhecido, edita
+`/opt/erplus/docker-compose.yml` trocando `:latest` pela sha curta
+desejada (ex.: `ghcr.io/besco-ai/erplus-api:sha-abc1234`) e roda
+`docker compose up -d`. Pra re-aplicar migrations de uma sha específica,
+mesma receita com `docker run` usando a imagem `erplus-migrations:sha-...`.
 
 ## Backups
 
