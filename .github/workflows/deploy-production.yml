@@ -156,15 +156,23 @@ jobs:
           echo "⚠️ External health check inconclusive." >> $GITHUB_STEP_SUMMARY
 
   # ---------------------------------------------------------------------------
-  # Deploy Client — same gate as the API
+  # Deploy Client — runs after the API is up.
+  #
+  # Why serialize instead of parallel: both jobs SSH into the same VPS and
+  # run `docker compose up -d` concurrently. Compose checks `depends_on`
+  # relationships when rolling `client` (which depends on `api`), so if the
+  # API container is being recreated at the exact same moment, the cached
+  # container ID goes stale and we get "No such container" errors.
+  # Waiting for deploy-api to finish first costs ~30s and avoids the race.
   # ---------------------------------------------------------------------------
   deploy-client:
     name: Deploy Client (VPS)
-    needs: [validate, migrations]
+    needs: [validate, migrations, deploy-api]
     if: |
       always() &&
       needs.validate.result == 'success' &&
-      (needs.migrations.result == 'success' || needs.migrations.result == 'skipped')
+      (needs.migrations.result == 'success' || needs.migrations.result == 'skipped') &&
+      needs.deploy-api.result == 'success'
     runs-on: ubuntu-latest
 
     steps:
