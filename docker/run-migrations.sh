@@ -48,10 +48,14 @@ for entry in "${MODULES[@]}"; do
 
   echo ""
   echo "→ ${MOD} (${CTX})"
+  # --configuration Release é obrigatório aqui: o Dockerfile builda em
+  # Release, mas `dotnet ef` assume Debug por padrão e tenta ler
+  # bin/Debug/net10.0/*.deps.json — que não existe na imagem.
   dotnet ef database update \
     --project "${PROJ}" \
     --startup-project "${STARTUP}" \
     --context "${CTX}" \
+    --configuration Release \
     --no-build
 done
 
