@@ -70,3 +70,6 @@ jobs:
 
       - name: Build Client image
         run: docker build -f docker/Dockerfile.client -t erplus-client:${{ github.sha }} .
+
+      - name: Build Migrations image
+        run: docker build -f docker/Dockerfile.migrations -t erplus-migrations:${{ github.sha }} .

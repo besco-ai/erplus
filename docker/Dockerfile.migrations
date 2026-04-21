@@ -1,0 +1,54 @@
+# =============================================================================
+# ERPlus — Migrations runner image
+# =============================================================================
+# Contém o SDK completo do .NET + o código do projeto + dotnet-ef instalado.
+# Único propósito: aplicar migrations em ordem nos 11 módulos e sair.
+#
+# Rodado via `docker run` como parte do workflow de deploy production, ANTES
+# da API ser atualizada. Se a aplicação de migrations falhar, o deploy é
+# abortado e o container atual da API continua intacto.
+#
+# Uso:
+#   docker run --rm --network erplus_default \
+#     -e ConnectionStrings__DefaultConnection="Host=db;..." \
+#     ghcr.io/besco-ai/erplus-migrations:latest
+# =============================================================================
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-preview
+
+WORKDIR /src
+
+# Camada de restore — só csproj pra aproveitar cache do Docker quando o
+# código muda mas as dependências não.
+COPY ["ERPlus.sln", "."]
+COPY ["Directory.Build.props", "."]
+
+COPY ["src/API/ERPlus.API.csproj", "src/API/"]
+COPY ["src/Shared/ERPlus.Shared.csproj", "src/Shared/"]
+COPY ["src/Modules/Identity/ERPlus.Modules.Identity.csproj", "src/Modules/Identity/"]
+COPY ["src/Modules/CRM/ERPlus.Modules.CRM.csproj", "src/Modules/CRM/"]
+COPY ["src/Modules/Commercial/ERPlus.Modules.Commercial.csproj", "src/Modules/Commercial/"]
+COPY ["src/Modules/Finance/ERPlus.Modules.Finance.csproj", "src/Modules/Finance/"]
+COPY ["src/Modules/Projects/ERPlus.Modules.Projects.csproj", "src/Modules/Projects/"]
+COPY ["src/Modules/Production/ERPlus.Modules.Production.csproj", "src/Modules/Production/"]
+COPY ["src/Modules/Tasks/ERPlus.Modules.Tasks.csproj", "src/Modules/Tasks/"]
+COPY ["src/Modules/Schedule/ERPlus.Modules.Schedule.csproj", "src/Modules/Schedule/"]
+COPY ["src/Modules/Documents/ERPlus.Modules.Documents.csproj", "src/Modules/Documents/"]
+COPY ["src/Modules/Automation/ERPlus.Modules.Automation.csproj", "src/Modules/Automation/"]
+COPY ["src/Modules/Reports/ERPlus.Modules.Reports.csproj", "src/Modules/Reports/"]
+COPY ["src/Modules/Config/ERPlus.Modules.Config.csproj", "src/Modules/Config/"]
+
+RUN dotnet restore src/API/ERPlus.API.csproj
+
+# Agora sim o código-fonte completo + build
+COPY . .
+RUN dotnet build src/API/ERPlus.API.csproj -c Release --no-restore
+
+# Instala dotnet-ef global (preview porque EF 10 ainda não tem stable)
+RUN dotnet tool install --global dotnet-ef --version 11.0.0-preview.3.26207.106
+ENV PATH="$PATH:/root/.dotnet/tools"
+
+COPY docker/run-migrations.sh /usr/local/bin/run-migrations
+RUN chmod +x /usr/local/bin/run-migrations
+
+ENTRYPOINT ["/usr/local/bin/run-migrations"]

@@ -71,6 +71,18 @@ jobs:
           cache-from: type=gha,scope=client
           cache-to: type=gha,mode=max,scope=client
 
+      - name: Build & push Migrations image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.migrations
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-migrations:${{ steps.meta.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-migrations:latest
+          cache-from: type=gha,scope=migrations
+          cache-to: type=gha,mode=max,scope=migrations
+
   github-release:
     name: Publish GitHub Release
     needs: build-and-push
