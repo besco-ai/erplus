@@ -1,0 +1,242 @@
+# =============================================================================
+# ERPlus — Production Deploy
+# =============================================================================
+# Manual trigger only (workflow_dispatch).
+# Order: validate → migrations → [deploy-api, deploy-client] → summary
+#
+# Frontend and API only deploy if migrations succeed. If a migration fails,
+# the running stack on the VPS stays untouched.
+# =============================================================================
+
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "deploy" to confirm production deployment'
+        required: true
+        type: string
+      skip_migrations:
+        description: "Skip database migrations (⚠️ only use if already applied manually)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Validation
+  # ---------------------------------------------------------------------------
+  validate:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm deployment intent
+        if: github.event.inputs.confirm != 'deploy'
+        run: |
+          echo "::error::Deployment cancelled. You must type 'deploy' to confirm."
+          exit 1
+
+      - name: Check branch
+        if: github.ref != 'refs/heads/main'
+        run: |
+          echo "::error::Deployments are only allowed from the main branch."
+          exit 1
+
+      - name: Log deployment info
+        run: |
+          echo "## 🚀 Production Deployment Started" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Skip migrations:** ${{ github.event.inputs.skip_migrations }}" >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Database Migrations — must succeed before the API rolls
+  # ---------------------------------------------------------------------------
+  migrations:
+    name: Database Migrations
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.event.inputs.skip_migrations != 'true'
+
+    steps:
+      - name: Run migrations container on the VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/erplus
+
+            # Load the .env so we can reconstruct the internal connection string.
+            # The migrations container connects to the `db` service inside the
+            # compose network — the DB is never exposed to the internet.
+            set -a; source .env; set +a
+
+            echo "=== Pulling migrations image ==="
+            docker pull ghcr.io/besco-ai/erplus-migrations:latest
+
+            echo "=== Running migrations ==="
+            docker run --rm \
+              --network erplus_default \
+              -e "ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=${POSTGRES_DB};Username=${POSTGRES_USER};Password=${POSTGRES_PASSWORD}" \
+              ghcr.io/besco-ai/erplus-migrations:latest
+
+      - name: Confirm migrations complete
+        run: |
+          echo "✅ All migrations applied successfully." >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Deploy API — only if migrations succeeded (or were skipped)
+  # ---------------------------------------------------------------------------
+  deploy-api:
+    name: Deploy API (VPS)
+    needs: [validate, migrations]
+    if: |
+      always() &&
+      needs.validate.result == 'success' &&
+      (needs.migrations.result == 'success' || needs.migrations.result == 'skipped')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Roll API container
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/erplus
+
+            echo "=== Pulling new API image ==="
+            docker compose pull api
+
+            echo "=== Rolling API container ==="
+            docker compose up -d api
+
+            echo "=== Waiting for API healthcheck ==="
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' erplus-api 2>/dev/null || echo "starting")
+              echo "Attempt $i/10: $STATUS"
+              if [ "$STATUS" = "healthy" ]; then
+                echo "✅ API is healthy"
+                break
+              fi
+              sleep 10
+            done
+
+            # Final verdict
+            FINAL=$(docker inspect --format='{{.State.Health.Status}}' erplus-api)
+            if [ "$FINAL" != "healthy" ]; then
+              echo "::error::API failed to become healthy. Last 40 log lines:"
+              docker compose logs --tail=40 api
+              exit 1
+            fi
+
+      - name: External health check
+        run: |
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://erplus.besco.ai/health/live || echo "000")
+            echo "Attempt $i: HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ https://erplus.besco.ai/health/live → 200" >> $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::warning::API responded but external health check didn't return 200. Verify manually."
+          echo "⚠️ External health check inconclusive." >> $GITHUB_STEP_SUMMARY
+
+  # ---------------------------------------------------------------------------
+  # Deploy Client — same gate as the API
+  # ---------------------------------------------------------------------------
+  deploy-client:
+    name: Deploy Client (VPS)
+    needs: [validate, migrations]
+    if: |
+      always() &&
+      needs.validate.result == 'success' &&
+      (needs.migrations.result == 'success' || needs.migrations.result == 'skipped')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Roll client container
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: root
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd /opt/erplus
+
+            echo "=== Pulling new client image ==="
+            docker compose pull client
+
+            echo "=== Rolling client container ==="
+            docker compose up -d client
+
+            # Client is just nginx serving static files — starts in seconds.
+            sleep 5
+            RUNNING=$(docker inspect --format='{{.State.Status}}' erplus-client)
+            if [ "$RUNNING" != "running" ]; then
+              echo "::error::client container is $RUNNING (expected 'running')"
+              docker compose logs --tail=40 client
+              exit 1
+            fi
+            echo "✅ client container is running"
+
+      - name: Homepage check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 https://erplus.besco.ai || echo "000")
+          if [ "$STATUS" = "200" ]; then
+            echo "✅ https://erplus.besco.ai → 200" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::Homepage returned HTTP $STATUS"
+            echo "⚠️ Homepage returned $STATUS." >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Summary
+  # ---------------------------------------------------------------------------
+  summary:
+    name: Deployment Summary
+    needs: [migrations, deploy-api, deploy-client]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Report status
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Migrations | ${{ needs.migrations.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| API (VPS) | ${{ needs.deploy-api.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Client (VPS) | ${{ needs.deploy-client.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** ${{ github.actor }} · **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Site:** https://erplus.besco.ai" >> $GITHUB_STEP_SUMMARY
+
+          if [ "${{ needs.migrations.result }}" = "failure" ]; then
+            echo "::error::Migrations failed — API and client were NOT deployed. The previous version keeps running."
+            exit 1
+          fi
+          if [ "${{ needs.deploy-api.result }}" = "failure" ] || [ "${{ needs.deploy-client.result }}" = "failure" ]; then
+            echo "::warning::One or more deploy steps failed. Check the logs above."
+            exit 1
+          fi
