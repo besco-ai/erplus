@@ -14,7 +14,7 @@
 #     ghcr.io/besco-ai/erplus-migrations:latest
 # =============================================================================
 
-FROM mcr.microsoft.com/dotnet/sdk:10.0-preview
+FROM mcr.microsoft.com/dotnet/sdk:10.0
 
 WORKDIR /src
 
@@ -44,13 +44,12 @@ RUN dotnet restore src/API/ERPlus.API.csproj
 COPY . .
 RUN dotnet build src/API/ERPlus.API.csproj -c Release --no-restore
 
-# Instala dotnet-ef global.
-# IMPORTANTE: a versão precisa bater com o runtime do SDK da imagem base.
-# A imagem mcr.microsoft.com/dotnet/sdk:10.0-preview traz o runtime
-# 10.0.0-preview.7.25380.108 — se pinarmos uma versão do dotnet-ef que exija
-# um runtime stable (ex.: 11.0.0-preview.3 pede Microsoft.NETCore.App 10.0.0),
-# o tool falha ao carregar dentro do container.
-RUN dotnet tool install --global dotnet-ef --version 10.0.0-preview.7.25380.108
+# Instala dotnet-ef global na versão estável do .NET 10.
+# A versão tem que ser compatível com o runtime da imagem base (10.0.x stable).
+# Evitamos previews aqui porque o dotnet-ef preview.7 tem bug de separador
+# de caminho no Linux — monta `bin\Release/net10.0/...` com backslash e
+# reclama que deps.json não existe.
+RUN dotnet tool install --global dotnet-ef --version 10.0.6
 ENV PATH="$PATH:/root/.dotnet/tools"
 
 COPY docker/run-migrations.sh /usr/local/bin/run-migrations
