@@ -1,13 +1,40 @@
+# =============================================================================
+# ERPlus — CI
+# =============================================================================
+# Roda em PRs contra main e em push pra main.
+#
+#   - backend / frontend: compilam e testam o código.
+#   - docker:
+#       • em PR  → builda os 3 Dockerfiles (não empurra). Isso captura
+#         regressões de Dockerfile antes do merge.
+#       • em main → builda E empurra as 3 imagens pro GHCR como
+#         :latest + :sha-<short-sha>. É daqui que o Deploy Production puxa.
+#
+# Antes tinha um workflow "Publish" separado só pro passo de empurrar.
+# Virou redundância assim que o CI passou a rodar Docker build em main —
+# então consolidamos num workflow só.
+# =============================================================================
+
 name: ERPlus CI
 
 on:
-  push:
-    branches: [main, develop]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 
 env:
   NODE_VERSION: '22'
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ github.repository_owner }}
+
+permissions:
+  contents: read
+  packages: write          # necessário pra push no GHCR na main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   backend:
@@ -54,19 +81,75 @@ jobs:
         run: npm run build
 
   docker:
-    name: Docker Build
+    name: Docker
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
-    if: github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build API image
-        run: docker build -f docker/Dockerfile.api -t erplus-api:${{ github.sha }} .
+      - name: Compute short SHA
+        id: meta
+        run: echo "sha_short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: Build Client image
-        run: docker build -f docker/Dockerfile.client -t erplus-client:${{ github.sha }} .
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-      - name: Build Migrations image
-        run: docker build -f docker/Dockerfile.migrations -t erplus-migrations:${{ github.sha }} .
+      - name: Log in to GHCR
+        # Só loga no GHCR quando vai realmente empurrar — em PRs pulamos isso.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build (& push on main) API image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.api
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-api:sha-${{ steps.meta.outputs.sha_short }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+      - name: Build (& push on main) Client image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.client
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-client:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-client:sha-${{ steps.meta.outputs.sha_short }}
+          cache-from: type=gha,scope=client
+          cache-to: type=gha,mode=max,scope=client
+
+      - name: Build (& push on main) Migrations image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile.migrations
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-migrations:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/erplus-migrations:sha-${{ steps.meta.outputs.sha_short }}
+          cache-from: type=gha,scope=migrations
+          cache-to: type=gha,mode=max,scope=migrations
+
+      - name: Publish summary (main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          {
+            echo "## Imagens publicadas"
+            echo ""
+            echo "| Imagem | Tags |"
+            echo "|---|---|"
+            echo "| \`erplus-api\` | \`:latest\`, \`:sha-${{ steps.meta.outputs.sha_short }}\` |"
+            echo "| \`erplus-client\` | \`:latest\`, \`:sha-${{ steps.meta.outputs.sha_short }}\` |"
+            echo "| \`erplus-migrations\` | \`:latest\`, \`:sha-${{ steps.meta.outputs.sha_short }}\` |"
+            echo ""
+            echo "Pronto pra rodar **Deploy Production**."
+          } >> "$GITHUB_STEP_SUMMARY"
