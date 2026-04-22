@@ -18,5 +18,6 @@ public record ProductionItemTypeDto(
     int Id, string Name, string Categoria, string? Descricao, string? AutoTasksJson, string Status);
 
 public record CreateItemTypeRequest(string Name, string Categoria, string? Descricao, string? AutoTasksJson);
+public record UpdateItemTypeRequest(string? Name, string? Categoria, string? Descricao, string? AutoTasksJson, string? Status);
 
 public record ProductionSummaryDto(string Category, string CategoryLabel, int Total, int NaoIniciado, int EmAndamento, int Finalizado);

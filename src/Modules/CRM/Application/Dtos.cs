@@ -37,5 +37,5 @@ public record ContactObservationDto(int Id, int ContactId, string Title, string 
 public record CreateObservationRequest(string Title, string Content, DateTime? Date);
 
 // ── Contact Types ──
-public record ContactTypeDto(int Id, string Name, string? Description);
+public record ContactTypeDto(int Id, string Name, string? Description, int ContactCount);
 public record CreateContactTypeRequest(string Name, string? Description);

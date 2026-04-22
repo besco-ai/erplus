@@ -98,6 +98,16 @@ public class CrmModuleInstaller : IModuleInstaller
                 ? Results.Created($"/api/crm/contact-types/{result.Data!.Id}", result.Data)
                 : Results.BadRequest(new { error = result.Error });
         });
+
+        group.MapDelete("/contact-types/{id:int}", async (int id, ContactService svc) =>
+        {
+            var result = await svc.DeleteTypeAsync(id);
+            return result.IsSuccess
+                ? Results.NoContent()
+                : result.StatusCode == 404
+                    ? Results.NotFound()
+                    : Results.BadRequest(new { error = result.Error });
+        });
     }
 
     public void UsePipeline(IApplicationBuilder app)
