@@ -25,7 +25,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
-    # Sem portas expostas ao host — acessível apenas pela rede Docker.
+    # Bind SOMENTE em 127.0.0.1 — Postgres não é exposto à internet. Quem
+    # já tem SSH na VPS pode abrir um túnel e conectar via DBeaver/psql.
+    # UFW continua bloqueando 5432 externamente; esse bind é só loopback.
+    ports:
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
