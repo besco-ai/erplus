@@ -211,8 +211,11 @@ public class ContactService
 
     public async Task<Result<List<ContactTypeDto>>> GetTypesAsync()
     {
+        // Count usage via Contact.Type (string lookup). Não é FK — match por Name.
         var types = await _db.ContactTypes.OrderBy(t => t.Name)
-            .Select(t => new ContactTypeDto(t.Id, t.Name, t.Description))
+            .Select(t => new ContactTypeDto(
+                t.Id, t.Name, t.Description,
+                _db.Contacts.Count(c => c.Type == t.Name)))
             .ToListAsync();
         return Result<List<ContactTypeDto>>.Success(types);
     }
@@ -222,10 +225,33 @@ public class ContactService
         if (string.IsNullOrWhiteSpace(request.Name))
             return Result<ContactTypeDto>.Failure("Nome é obrigatório");
 
+        var exists = await _db.ContactTypes.AnyAsync(t => t.Name.ToLower() == request.Name.Trim().ToLower());
+        if (exists) return Result<ContactTypeDto>.Failure("Já existe um tipo com esse nome");
+
         var type = new ContactType { Name = request.Name.Trim(), Description = request.Description?.Trim() };
         _db.ContactTypes.Add(type);
         await _db.SaveChangesAsync();
 
-        return Result<ContactTypeDto>.Created(new ContactTypeDto(type.Id, type.Name, type.Description));
+        return Result<ContactTypeDto>.Created(new ContactTypeDto(type.Id, type.Name, type.Description, 0));
+    }
+
+    public async Task<Result<bool>> DeleteTypeAsync(int id)
+    {
+        var type = await _db.ContactTypes.FindAsync(id);
+        if (type is null) return Result<bool>.NotFound();
+
+        // Se algum contato estiver usando o nome deste tipo, bloqueamos a exclusão.
+        // Mudar apenas o schema (deletar o tipo) não deve deixar contatos com referência
+        // órfã — a decisão de como reclassificar os contatos é do usuário.
+        var inUse = await _db.Contacts.AnyAsync(c => c.Type == type.Name);
+        if (inUse)
+        {
+            var count = await _db.Contacts.CountAsync(c => c.Type == type.Name);
+            return Result<bool>.Failure($"Não é possível excluir: {count} contato(s) ainda usam este tipo.");
+        }
+
+        _db.ContactTypes.Remove(type);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 }

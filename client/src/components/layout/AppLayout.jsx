@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, Eye } from 'lucide-react';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
+import useAuthStore from '../../hooks/useAuthStore';
 
 export default function AppLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { simulatedUser, exitSimulation } = useAuthStore();
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -46,6 +48,23 @@ export default function AppLayout() {
         <div className="hidden md:block">
           <Topbar />
         </div>
+
+        {simulatedUser && (
+          <div className="bg-amber-50 border-b border-amber-200 px-4 md:px-6 py-2 flex items-center justify-between gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 text-sm text-amber-800">
+              <Eye size={14} />
+              <span>
+                Simulando acesso como <strong>{simulatedUser.name}</strong> ({simulatedUser.role})
+              </span>
+            </div>
+            <button
+              onClick={exitSimulation}
+              className="text-xs font-semibold text-amber-800 hover:text-amber-900 underline"
+            >
+              Sair da simulação
+            </button>
+          </div>
+        )}
 
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-erplus-bg">
           <Outlet />

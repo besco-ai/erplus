@@ -56,7 +56,19 @@ public class ProductionModuleInstaller : IModuleInstaller
         group.MapPost("/item-types", async (CreateItemTypeRequest req, ProductionService svc) =>
         {
             var r = await svc.CreateItemTypeAsync(req);
-            return r.IsSuccess ? Results.Created("", r.Data) : Results.BadRequest(new { error = r.Error });
+            return r.IsSuccess ? Results.Created($"/api/production/item-types/{r.Data!.Id}", r.Data) : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapPut("/item-types/{id:int}", async (int id, UpdateItemTypeRequest req, ProductionService svc) =>
+        {
+            var r = await svc.UpdateItemTypeAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data) : r.StatusCode == 404 ? Results.NotFound() : Results.BadRequest(new { error = r.Error });
+        });
+
+        group.MapDelete("/item-types/{id:int}", async (int id, ProductionService svc) =>
+        {
+            var r = await svc.DeleteItemTypeAsync(id);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
         });
     }
 

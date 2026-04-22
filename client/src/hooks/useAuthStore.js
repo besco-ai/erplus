@@ -10,6 +10,33 @@ const useAuthStore = create((set, get) => ({
   loading: false,
   error: null,
 
+  // Simulate Access — visualize o sistema como outro usuário.
+  // Não troca o JWT: o backend continua enxergando o usuário real. A simulação
+  // vale só pra o lado do cliente (filtros de UI, gates de rota, banner).
+  simulatedUser: JSON.parse(localStorage.getItem('erplus_sim_user') || 'null'),
+  simulatedPermissions: JSON.parse(localStorage.getItem('erplus_sim_perms') || 'null'),
+
+  simulateAs: async (targetUser) => {
+    if (!targetUser) return;
+    // Busca a matriz de permissões e extrai apenas o role alvo.
+    try {
+      const { data } = await api.get('/identity/permissions/');
+      const perms = data[targetUser.role] || {};
+      localStorage.setItem('erplus_sim_user', JSON.stringify(targetUser));
+      localStorage.setItem('erplus_sim_perms', JSON.stringify(perms));
+      set({ simulatedUser: targetUser, simulatedPermissions: perms });
+    } catch {
+      // Se a API falhar, volta ao perfil real.
+      get().exitSimulation();
+    }
+  },
+
+  exitSimulation: () => {
+    localStorage.removeItem('erplus_sim_user');
+    localStorage.removeItem('erplus_sim_perms');
+    set({ simulatedUser: null, simulatedPermissions: null });
+  },
+
   login: async (email, password) => {
     set({ loading: true, error: null });
     try {
@@ -72,10 +99,18 @@ const useAuthStore = create((set, get) => ({
     set({ user: null, token: null, refreshToken: null, permissions: {}, isAuthenticated: false });
   },
 
-  // Check permission for a resource
+  // Check permission for a resource.
+  // Em modo de simulação, usa a matriz do role simulado.
   can: (resource, action = 'canView') => {
-    const { permissions } = get();
-    return permissions[resource]?.[action] ?? false;
+    const { permissions, simulatedPermissions } = get();
+    const source = simulatedPermissions || permissions;
+    return source[resource]?.[action] ?? false;
+  },
+
+  // Retorna o "usuário efetivo" — o simulado se houver, senão o real.
+  effectiveUser: () => {
+    const { user, simulatedUser } = get();
+    return simulatedUser || user;
   },
 
   fetchMe: async () => {

@@ -126,9 +126,58 @@ public class ProductionService
     public async Task<Result<ProductionItemTypeDto>> CreateItemTypeAsync(CreateItemTypeRequest r)
     {
         if (string.IsNullOrWhiteSpace(r.Name)) return Result<ProductionItemTypeDto>.Failure("Nome é obrigatório");
-        var t = new ProductionItemType { Name = r.Name.Trim(), Categoria = r.Categoria, Descricao = r.Descricao, AutoTasksJson = r.AutoTasksJson };
+        if (string.IsNullOrWhiteSpace(r.Categoria)) return Result<ProductionItemTypeDto>.Failure("Categoria é obrigatória");
+        if (!CategoryLabels.ContainsKey(r.Categoria)) return Result<ProductionItemTypeDto>.Failure("Categoria inválida");
+
+        var t = new ProductionItemType
+        {
+            Name = r.Name.Trim(),
+            Categoria = r.Categoria,
+            Descricao = r.Descricao?.Trim(),
+            AutoTasksJson = r.AutoTasksJson
+        };
         _db.ItemTypes.Add(t);
         await _db.SaveChangesAsync();
         return Result<ProductionItemTypeDto>.Created(new ProductionItemTypeDto(t.Id, t.Name, t.Categoria, t.Descricao, t.AutoTasksJson, t.Status));
+    }
+
+    public async Task<Result<ProductionItemTypeDto>> UpdateItemTypeAsync(int id, UpdateItemTypeRequest r)
+    {
+        var t = await _db.ItemTypes.FindAsync(id);
+        if (t is null) return Result<ProductionItemTypeDto>.NotFound();
+
+        if (r.Name is not null) t.Name = r.Name.Trim();
+        if (r.Categoria is not null)
+        {
+            if (!CategoryLabels.ContainsKey(r.Categoria)) return Result<ProductionItemTypeDto>.Failure("Categoria inválida");
+            t.Categoria = r.Categoria;
+        }
+        if (r.Descricao is not null) t.Descricao = r.Descricao.Trim();
+        if (r.AutoTasksJson is not null) t.AutoTasksJson = r.AutoTasksJson;
+        if (r.Status is not null) t.Status = r.Status;
+        t.UpdatedAt = DateTime.UtcNow;
+
+        await _db.SaveChangesAsync();
+        return Result<ProductionItemTypeDto>.Success(new ProductionItemTypeDto(t.Id, t.Name, t.Categoria, t.Descricao, t.AutoTasksJson, t.Status));
+    }
+
+    public async Task<Result<bool>> DeleteItemTypeAsync(int id)
+    {
+        var t = await _db.ItemTypes.FindAsync(id);
+        if (t is null) return Result<bool>.NotFound();
+
+        // Se algum ProductionItem usa esse tipo, não deletamos — só desativamos pra não quebrar vínculo histórico.
+        var inUse = await _db.Items.AnyAsync(i => i.ProdItemTypeId == id);
+        if (inUse)
+        {
+            t.Status = "Inativo";
+            t.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            return Result<bool>.Success(true);
+        }
+
+        _db.ItemTypes.Remove(t);
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
     }
 }
