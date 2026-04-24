@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import { useToast } from '../../components/ui/Toast';
+import DatePicker from '../../components/ui/DatePicker';
+import { fmtDate } from '../../utils/date';
 
 const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
 const TYPES = ['Lead', 'Cliente', 'Fornecedor', 'Relacionamento'];
@@ -108,7 +110,11 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
             <>
               <Field label="CPF" value={form.cpf} onChange={(v) => set('cpf', v)} placeholder="000.000.000-00" />
               <Field label="Cargo" value={form.position} onChange={(v) => set('position', v)} />
-              <Field label="Aniversário" value={form.birthday} onChange={(v) => set('birthday', v)} type="date" />
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Aniversário</label>
+                <DatePicker value={form.birthday} onChange={(v) => set('birthday', v)}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500" />
+              </div>
               <Field label="Vinculado a (PJ)" value={form.linkedToId}
                 onChange={(v) => set('linkedToId', v)}
                 options={[{ value: '', label: '— Nenhum —' }, ...pjContacts.map((c) => ({ value: c.id, label: c.name }))]} />
@@ -146,7 +152,6 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
 }
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('pt-BR') : '—');
 
 function ContactDetail({ contact, onClose, onUpdated }) {
   const [tab, setTab] = useState('dados');

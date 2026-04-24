@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, Edit, Trash2, MapPin, Ruler, Building, Calendar } from 'lucide-react';
 import api from '../../services/api';
+import { fmtDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 const fmtInsc = (v) => {
@@ -137,8 +138,8 @@ function ProjectDetailModal({ project, onClose, onSaved }) {
                 <div className="col-span-2">
                   <Field label="Endereço" value={detail?.endEmpreendimento} field="endEmpreendimento" />
                 </div>
-                <Field label="Início" value={detail?.startDate ? new Date(detail.startDate).toLocaleDateString('pt-BR') : '—'} field="startDate" editable={false} />
-                <Field label="Previsão Término" value={detail?.endDate ? new Date(detail.endDate).toLocaleDateString('pt-BR') : '—'} field="endDate" editable={false} />
+                <Field label="Início" value={fmtDate(detail?.startDate)} field="startDate" editable={false} />
+                <Field label="Previsão Término" value={fmtDate(detail?.endDate)} field="endDate" editable={false} />
               </div>
             </div>
 

@@ -4,6 +4,8 @@ import {
   Edit, Trash2, ArrowUpRight, ArrowDownRight,
 } from 'lucide-react';
 import api from '../../services/api';
+import DatePicker from '../../components/ui/DatePicker';
+import { fmtDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -59,7 +61,7 @@ function EntryModal({ entry, costCenters, bankAccounts, onClose, onSaved }) {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
-            <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição *</label>
@@ -212,7 +214,7 @@ export default function FinancePage() {
                 <tbody>
                   {entries.map((e) => (
                     <tr key={e.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                      <td className="px-5 py-3 text-sm text-gray-600">{new Date(e.date).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(e.date)}</td>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-2">
                           {e.type === 'receita'
@@ -257,7 +259,7 @@ export default function FinancePage() {
                   {receivables.map((r) => (
                     <tr key={r.id} className="border-b border-gray-50">
                       <td className="px-5 py-3 text-sm font-medium">{r.descricao}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{new Date(r.vencimento).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(r.vencimento)}</td>
                       <td className="px-5 py-3 text-sm font-bold text-green-600 text-right">{R$(r.valor)}</td>
                       <td className="px-5 py-3 text-center">{statusBadge(r.status)}</td>
                     </tr>
@@ -284,7 +286,7 @@ export default function FinancePage() {
                   {payables.map((p) => (
                     <tr key={p.id} className="border-b border-gray-50">
                       <td className="px-5 py-3 text-sm font-medium">{p.descricao}</td>
-                      <td className="px-5 py-3 text-sm text-gray-600">{new Date(p.vencimento).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-5 py-3 text-sm text-gray-600">{fmtDate(p.vencimento)}</td>
                       <td className="px-5 py-3 text-sm font-bold text-red-600 text-right">{R$(p.valor)}</td>
                       <td className="px-5 py-3 text-center">{statusBadge(p.status)}</td>
                     </tr>

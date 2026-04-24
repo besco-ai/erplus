@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, FileText, Edit, Trash2, Check, XCircle, RotateCcw } from 'lucide-react';
 import api from '../../services/api';
+import DatePicker from '../../components/ui/DatePicker';
+import { fmtDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -68,7 +70,7 @@ function QuoteModal({ quote, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Validade</label>
-              <input type="date" value={form.validade} onChange={(e) => setForm({ ...form, validade: e.target.value })}
+              <DatePicker value={form.validade} onChange={(v) => setForm({ ...form, validade: v })}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
             </div>
           </div>
@@ -185,8 +187,8 @@ export default function QuotesPage() {
                     <span className="text-sm font-bold text-erplus-accent">{q.numero}</span>
                   </td>
                   <td className="px-5 py-3 text-sm font-medium">{q.titulo}</td>
-                  <td className="px-5 py-3 text-sm text-gray-500">{new Date(q.data).toLocaleDateString('pt-BR')}</td>
-                  <td className="px-5 py-3 text-sm text-gray-500">{q.validade ? new Date(q.validade).toLocaleDateString('pt-BR') : '—'}</td>
+                  <td className="px-5 py-3 text-sm text-gray-500">{fmtDate(q.data)}</td>
+                  <td className="px-5 py-3 text-sm text-gray-500">{fmtDate(q.validade)}</td>
                   <td className="px-5 py-3 text-sm font-bold text-right">{R$(q.valor)}</td>
                   <td className="px-5 py-3 text-center">
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${sc.bg} ${sc.text}`}>{q.status}</span>

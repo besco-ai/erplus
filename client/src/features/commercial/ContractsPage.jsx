@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, FileText, ExternalLink } from 'lucide-react';
 import api from '../../services/api';
+import DatePicker from '../../components/ui/DatePicker';
+import { fmtDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -80,7 +82,7 @@ function ContractModal({ onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data fim</label>
-              <input type="date" value={form.dataFim} onChange={(e) => setForm({ ...form, dataFim: e.target.value })}
+              <DatePicker value={form.dataFim} onChange={(v) => setForm({ ...form, dataFim: v })}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
             </div>
           </div>
@@ -152,8 +154,8 @@ export default function ContractsPage() {
                   <div className="text-sm font-medium">{c.titulo}</div>
                   {c.endEmpreendimento && <div className="text-xs text-gray-400 truncate max-w-xs">{c.endEmpreendimento}</div>}
                 </td>
-                <td className="px-5 py-3 text-sm text-gray-500">{new Date(c.dataInicio).toLocaleDateString('pt-BR')}</td>
-                <td className="px-5 py-3 text-sm text-gray-500">{c.dataFim ? new Date(c.dataFim).toLocaleDateString('pt-BR') : '—'}</td>
+                <td className="px-5 py-3 text-sm text-gray-500">{fmtDate(c.dataInicio)}</td>
+                <td className="px-5 py-3 text-sm text-gray-500">{fmtDate(c.dataFim)}</td>
                 <td className="px-5 py-3 text-sm font-bold text-right">{R$(c.valor)}</td>
                 <td className="px-5 py-3 text-center">{statusBadge(c.status)}</td>
                 <td className="px-5 py-3 text-center">

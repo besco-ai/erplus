@@ -1,9 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Plus, X, Save, Trash2, Edit, ShoppingCart } from 'lucide-react';
 import api from '../../services/api';
+import DatePicker from '../../components/ui/DatePicker';
+import { fmtDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString('pt-BR') : '—');
 
 const STATUSES = ['Rascunho', 'Enviada', 'Aprovada', 'Recebida', 'Cancelada'];
 const STATUS_COLORS = {
@@ -98,19 +99,17 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.data}
-                onChange={(e) => setForm({ ...form, data: e.target.value })}
+                onChange={(v) => setForm({ ...form, data: v })}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
               />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo entrega</label>
-              <input
-                type="date"
+              <DatePicker
                 value={form.prazoEntrega}
-                onChange={(e) => setForm({ ...form, prazoEntrega: e.target.value })}
+                onChange={(v) => setForm({ ...form, prazoEntrega: v })}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
               />
             </div>
@@ -184,9 +183,9 @@ export default function OrdemComprasPage() {
         api.get('/finance/cost-centers'),
         api.get('/crm/contacts?type=Fornecedor'),
       ]);
-      setOrders(po.data);
-      setCostCenters(cc.data);
-      setFornecedores(ct.data);
+      setOrders(Array.isArray(po.data) ? po.data : (po.data?.items ?? []));
+      setCostCenters(Array.isArray(cc.data) ? cc.data : (cc.data?.items ?? []));
+      setFornecedores(Array.isArray(ct.data) ? ct.data : (ct.data?.items ?? []));
     } catch {
       /* silent */
     } finally {

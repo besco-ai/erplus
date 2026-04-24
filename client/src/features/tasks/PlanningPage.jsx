@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Calendar, CheckSquare, Clock, AlertCircle } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import { fmtDate } from '../../utils/date';
 
 export default function PlanningPage() {
   const { user } = useAuthStore();
@@ -89,7 +90,7 @@ export default function PlanningPage() {
                   <span className={statusColors[t.status] || 'text-gray-500'}>{t.status}</span>
                   {t.due && (
                     <span className={`flex items-center gap-1 ${t.isOverdue ? 'text-red-500 font-semibold' : ''}`}>
-                      <Clock size={10} />{new Date(t.due).toLocaleDateString('pt-BR')}
+                      <Clock size={10} />{fmtDate(t.due)}
                     </span>
                   )}
                 </div>
@@ -111,7 +112,7 @@ export default function PlanningPage() {
               <div className="flex-1">
                 <div className="text-sm font-medium">{e.title}</div>
                 <div className="text-xs text-gray-400">
-                  {new Date(e.date).toLocaleDateString('pt-BR')} {e.time && `\u00e0s ${e.time}`} \u00b7 {e.durationMinutes}min
+                  {fmtDate(e.date)} {e.time && `\u00e0s ${e.time}`} \u00b7 {e.durationMinutes}min
                 </div>
               </div>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">{e.type}</span>

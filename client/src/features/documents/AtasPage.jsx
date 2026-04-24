@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, FileText, Trash2, ExternalLink, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../services/api';
+import { fmtDate } from '../../utils/date';
 
 function AtaModal({ deals, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -81,7 +82,7 @@ function AtaCard({ ata, dealTitle, onDelete }) {
           </div>
           <div className="text-xs text-gray-400 flex items-center gap-2">
             <Calendar size={10} />
-            {new Date(ata.date).toLocaleDateString('pt-BR')}
+            {fmtDate(ata.date)}
           </div>
         </div>
         <div className="flex items-center gap-1">

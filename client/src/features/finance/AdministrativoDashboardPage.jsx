@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, ArrowDownRight, DollarSign, AlertTriangle, CalendarClock, Landmark, Printer } from 'lucide-react';
 import api from '../../services/api';
+import { fmtDate as formatDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-const formatDate = (d) => new Date(d).toLocaleDateString('pt-BR');
 const monthLabel = (yyyyMm) => {
   const [y, m] = yyyyMm.split('-');
   const names = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];

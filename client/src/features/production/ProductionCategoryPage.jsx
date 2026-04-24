@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, Trash2, Edit, Clock } from 'lucide-react';
 import api from '../../services/api';
+import { fmtDate } from '../../utils/date';
+import DatePicker from '../../components/ui/DatePicker';
 
 const STATUSES = ['Não iniciado', 'Em andamento', 'Em revisão', 'Finalizado'];
 
@@ -63,10 +65,9 @@ function ItemModal({ item, category, onClose, onSaved }) {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
-            <input
-              type="date"
+            <DatePicker
               value={form.due}
-              onChange={(e) => setForm({ ...form, due: e.target.value })}
+              onChange={(v) => setForm({ ...form, due: v })}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
             />
           </div>
@@ -199,7 +200,7 @@ export default function ProductionCategoryPage({ category, label, color }) {
                           }`}
                         >
                           <Clock size={12} />
-                          {new Date(item.due).toLocaleDateString('pt-BR')}
+                          {fmtDate(item.due)}
                         </span>
                       ) : (
                         <span className="text-gray-300 text-sm">—</span>

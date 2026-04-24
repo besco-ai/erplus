@@ -31,6 +31,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Reports", "s
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Config", "src\Modules\Config\ERPlus.Modules.Config.csproj", "{B1000001-0000-0000-0000-000000000012}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ERPlus.Modules.Notifications", "src\Modules\Notifications\ERPlus.Modules.Notifications.csproj", "{B1000001-0000-0000-0000-000000000013}"
+EndProject
 
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

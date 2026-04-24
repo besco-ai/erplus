@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Folder, CheckCircle2, Activity, AlertTriangle, Circle, Clock, Printer } from 'lucide-react';
 import api from '../../services/api';
+import { fmtDate as formatDate } from '../../utils/date';
 
 const CATEGORIES = [
   { key: 'revisao_tecnica', label: 'Revisão Técnica', color: '#8B5CF6', path: '/producao/revisao-tecnica' },
@@ -14,7 +15,6 @@ const CATEGORIES = [
   { key: 'averbacoes', label: 'Averbações', color: '#F97316', path: '/producao/averbacoes' },
 ];
 
-const formatDate = (d) => new Date(d).toLocaleDateString('pt-BR');
 
 export default function ProductionDashboardPage() {
   const [d, setD] = useState(null);

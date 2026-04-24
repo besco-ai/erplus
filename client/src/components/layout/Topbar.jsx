@@ -1,27 +1,44 @@
-import { Search, Bell } from 'lucide-react';
+import { useEffect } from 'react';
+import { Bell } from 'lucide-react';
 import useAuthStore from '../../hooks/useAuthStore';
+import useNotificationStore from '../../hooks/useNotificationStore';
+import NotificationPanel from '../ui/NotificationPanel';
+import GlobalSearch from '../ui/GlobalSearch';
 
 export default function Topbar() {
   const { user } = useAuthStore();
+  const { unreadCount, panelOpen, openPanel, closePanel, fetchUnreadCount } = useNotificationStore();
+
+  // Busca o contador ao montar e a cada 30s
+  useEffect(() => {
+    fetchUnreadCount();
+    const interval = setInterval(fetchUnreadCount, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchUnreadCount]);
 
   return (
     <header className="h-16 bg-white border-b border-erplus-border flex items-center justify-between px-6 flex-shrink-0">
       {/* Search */}
-      <div className="relative w-80">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-erplus-text-light" />
-        <input
-          type="text"
-          placeholder="Pesquisar..."
-          className="w-full pl-10 pr-4 py-2 border border-erplus-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 focus:border-erplus-accent transition"
-        />
-      </div>
+      <GlobalSearch />
 
       {/* Right side */}
       <div className="flex items-center gap-4">
-        <button className="relative p-2 rounded-lg hover:bg-erplus-border-light transition">
-          <Bell size={20} className="text-erplus-text-muted" />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-erplus-accent rounded-full" />
-        </button>
+        {/* Sino com painel */}
+        <div className="relative">
+          <button
+            onClick={panelOpen ? closePanel : openPanel}
+            className={`relative p-2 rounded-lg transition ${panelOpen ? 'bg-erplus-border-light text-erplus-accent' : 'hover:bg-erplus-border-light text-erplus-text-muted'}`}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-erplus-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          <NotificationPanel />
+        </div>
 
         {user && (
           <div className="flex items-center gap-3">

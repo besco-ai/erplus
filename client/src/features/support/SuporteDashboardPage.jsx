@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock, MessageSquare, Activity, Printer } from 'lucide-react';
 import api from '../../services/api';
-
-const formatDate = (d) => new Date(d).toLocaleDateString('pt-BR');
+import { fmtDate as formatDate } from '../../utils/date';
 
 const STATUS_COLORS = {
   Aberto: 'bg-blue-50 text-blue-600',
