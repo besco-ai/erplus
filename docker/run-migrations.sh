@@ -35,6 +35,7 @@ MODULES=(
   "Documents:DocumentsDbContext"
   "Automation:AutomationDbContext"
   "Config:ConfigDbContext"
+  "Notifications:NotificationsDbContext"
 )
 
 echo "=========================================="
