@@ -22,6 +22,10 @@ public class ProductionService
 
     public ProductionService(ProductionDbContext db) => _db = db;
 
+    // Garante que a data seja UTC antes de persistir (JSON envia sem timezone → Kind=Unspecified)
+    private static DateTime? ToUtc(DateTime? d) =>
+        d.HasValue ? DateTime.SpecifyKind(d.Value, DateTimeKind.Utc) : null;
+
     public async Task<Result<List<ProductionSummaryDto>>> GetSummaryAsync()
     {
         var items = await _db.Items.ToListAsync();
@@ -66,7 +70,7 @@ public class ProductionService
             Title = r.Title.Trim(), Description = r.Description?.Trim(),
             Category = r.Category, Status = "Não iniciado",
             ResponsibleId = r.ResponsibleId > 0 ? r.ResponsibleId : 1,
-            Due = r.Due, DealId = r.DealId, ProjectId = r.ProjectId,
+            Due = ToUtc(r.Due), DealId = r.DealId, ProjectId = r.ProjectId,
             ClientId = r.ClientId, ProdItemTypeId = r.ProdItemTypeId
         };
         _db.Items.Add(item);
@@ -91,7 +95,7 @@ public class ProductionService
             item.Status = r.Status;
         }
         if (r.ResponsibleId.HasValue) item.ResponsibleId = r.ResponsibleId.Value;
-        if (r.Due.HasValue) item.Due = r.Due.Value;
+        if (r.Due.HasValue) item.Due = DateTime.SpecifyKind(r.Due.Value, DateTimeKind.Utc);
         if (r.Category is not null) item.Category = r.Category;
         item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();

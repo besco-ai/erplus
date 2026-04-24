@@ -19,6 +19,9 @@ public class TaskService
         _automation = automation;
     }
 
+    private static DateTime? ToUtc(DateTime? d) =>
+        d.HasValue ? DateTime.SpecifyKind(d.Value, DateTimeKind.Utc) : null;
+
     public async Task<Result<TaskSummaryDto>> GetSummaryAsync(int? responsibleId)
     {
         var query = _db.Tasks.AsQueryable();
@@ -85,7 +88,7 @@ public class TaskService
             Description = r.Description?.Trim(),
             Status = "Não iniciado",
             ResponsibleId = r.ResponsibleId > 0 ? r.ResponsibleId : 1,
-            Due = r.Due,
+            Due = ToUtc(r.Due),
             DealId = r.DealId,
             ProjectId = r.ProjectId,
             Category = r.Category
@@ -116,7 +119,7 @@ public class TaskService
             task.Status = r.Status;
         }
         if (r.ResponsibleId.HasValue) task.ResponsibleId = r.ResponsibleId.Value;
-        if (r.Due.HasValue) task.Due = r.Due.Value;
+        if (r.Due.HasValue) task.Due = DateTime.SpecifyKind(r.Due.Value, DateTimeKind.Utc);
         if (r.SubtasksJson is not null) task.SubtasksJson = r.SubtasksJson;
         if (r.Category is not null) task.Category = r.Category;
 

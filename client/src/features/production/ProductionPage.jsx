@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, Trash2, Edit, Clock } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import { fmtDate } from '../../utils/date';
+import DatePicker from '../../components/ui/DatePicker';
 
 const CATEGORIES = [
   { key: 'licenciamentos', label: 'Licenciamentos', color: '#F59E0B' },
@@ -61,7 +63,7 @@ function ItemModal({ item, activeCategory, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
-              <input type="date" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
             </div>
           </div>
           {isEdit && (
@@ -172,7 +174,7 @@ export default function ProductionPage({ mine = false }) {
                   <td className="px-5 py-3">
                     {item.due ? (
                       <span className={`text-sm flex items-center gap-1 ${item.isOverdue ? 'text-red-500 font-semibold' : 'text-gray-600'}`}>
-                        <Clock size={12} />{new Date(item.due).toLocaleDateString('pt-BR')}
+                        <Clock size={12} />{fmtDate(item.due)}
                       </span>
                     ) : <span className="text-gray-300 text-sm">—</span>}
                   </td>

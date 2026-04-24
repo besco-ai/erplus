@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, HelpCircle, Trash2, MessageSquare, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import api from '../../services/api';
+import { fmtDate } from '../../utils/date';
 
 const CATEGORIES = ['Geral', 'Bug', 'Melhoria', 'Dúvida'];
 const PRIORITIES = ['Baixa', 'Normal', 'Alta', 'Urgente'];
@@ -176,7 +177,7 @@ export default function SupportPage() {
                       <strong>Resolução:</strong> {t.resolution}
                     </div>
                   )}
-                  <div className="text-xs text-gray-400 mt-2">{new Date(t.createdAt).toLocaleDateString('pt-BR')} {t.resolvedAt && `· Resolvido em ${new Date(t.resolvedAt).toLocaleDateString('pt-BR')}`}</div>
+                  <div className="text-xs text-gray-400 mt-2">{fmtDate(t.createdAt)} {t.resolvedAt && `· Resolvido em ${fmtDate(t.resolvedAt)}`}</div>
                 </div>
                 <div className="flex items-center gap-1 ml-3">
                   <button onClick={() => setModal(t)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><MessageSquare size={14} /></button>

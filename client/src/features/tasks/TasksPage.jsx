@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import DatePicker from '../../components/ui/DatePicker';
+import { fmtDate } from '../../utils/date';
 
 const STATUSES = ['Não iniciado', 'Em andamento', 'Em revisão', 'Finalizado'];
 const statusColors = {
@@ -26,7 +28,7 @@ function TaskCard({ task, onClick }) {
           {task.due && (
             <span className={`text-xs font-medium flex items-center gap-1 ${task.isOverdue ? 'text-red-500' : 'text-gray-400'}`}>
               <Clock size={10} />
-              {new Date(task.due).toLocaleDateString('pt-BR')}
+              {fmtDate(task.due)}
             </span>
           )}
         </div>
@@ -153,7 +155,7 @@ function TaskModal({ task, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
-              <input type="date" value={form.due} onChange={(e) => setForm({ ...form, due: e.target.value })}
+              <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
             </div>
           </div>

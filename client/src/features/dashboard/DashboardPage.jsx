@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   TrendingUp, DollarSign, CheckSquare, Calendar, Folder,
   FileText, ArrowRight, Clock, Star, Users, Activity,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -13,6 +14,33 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // PDF preview state
+  const [pdfModal, setPdfModal] = useState({ open: false, blobUrl: null, loading: false, error: null });
+  const pdfFilename = `ERPlus_Dashboard_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+  const openPdfPreview = useCallback(async () => {
+    setPdfModal({ open: true, blobUrl: null, loading: true, error: null });
+    try {
+      const response = await api.get('/reports/dashboard/pdf', { responseType: 'blob' });
+      const blobUrl = URL.createObjectURL(new Blob([response.data], { type: 'application/pdf' }));
+      setPdfModal({ open: true, blobUrl, loading: false, error: null });
+    } catch {
+      setPdfModal({ open: true, blobUrl: null, loading: false, error: 'Erro ao gerar o relatório. Tente novamente.' });
+    }
+  }, []);
+
+  const downloadPdf = useCallback(() => {
+    if (!pdfModal.blobUrl) return;
+    const a = document.createElement('a');
+    a.href = pdfModal.blobUrl;
+    a.download = pdfFilename;
+    a.click();
+  }, [pdfModal.blobUrl, pdfFilename]);
+
+  const closePdfModal = useCallback(() => {
+    setPdfModal((prev) => ({ ...prev, open: false }));
+  }, []);
 
   // Role-based visibility flags.
   // Visitante: KPIs resumidos + agenda, sem financeiro/equipe/funil.
@@ -57,6 +85,16 @@ export default function DashboardPage() {
   };
 
   return (
+    <>
+    <PdfPreviewModal
+      open={pdfModal.open}
+      onClose={closePdfModal}
+      onDownload={downloadPdf}
+      blobUrl={pdfModal.blobUrl}
+      loading={pdfModal.loading}
+      error={pdfModal.error}
+      filename={pdfFilename}
+    />
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -68,17 +106,7 @@ export default function DashboardPage() {
         </div>
         <div className="flex gap-2">
           <button
-            onClick={async () => {
-              try {
-                const response = await api.get('/reports/dashboard/pdf', { responseType: 'blob' });
-                const url = window.URL.createObjectURL(new Blob([response.data]));
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `ERPlus_Dashboard_${new Date().toISOString().slice(0, 10)}.pdf`;
-                a.click();
-                window.URL.revokeObjectURL(url);
-              } catch { alert('Erro ao gerar PDF'); }
-            }}
+            onClick={openPdfPreview}
             className="px-4 py-2 bg-gray-100 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-200 transition flex items-center gap-2"
           >
             <FileText size={14} />
@@ -244,5 +272,6 @@ export default function DashboardPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

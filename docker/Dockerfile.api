@@ -22,6 +22,7 @@ COPY ["src/Modules/Documents/ERPlus.Modules.Documents.csproj", "src/Modules/Docu
 COPY ["src/Modules/Automation/ERPlus.Modules.Automation.csproj", "src/Modules/Automation/"]
 COPY ["src/Modules/Reports/ERPlus.Modules.Reports.csproj", "src/Modules/Reports/"]
 COPY ["src/Modules/Config/ERPlus.Modules.Config.csproj", "src/Modules/Config/"]
+COPY ["src/Modules/Notifications/ERPlus.Modules.Notifications.csproj", "src/Modules/Notifications/"]
 
 RUN dotnet restore src/API/ERPlus.API.csproj
 

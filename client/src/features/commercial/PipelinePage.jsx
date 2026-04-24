@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import { fmtDate } from '../../utils/date';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -156,7 +157,7 @@ function AtasTab({ dealId, atas, onChanged }) {
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-semibold">{a.title}</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">{new Date(a.date).toLocaleDateString('pt-BR')}</span>
+                <span className="text-xs text-gray-400">{fmtDate(a.date)}</span>
                 <button onClick={() => remove(a.id)} className="text-gray-400 hover:text-red-500">
                   <Trash2 size={12} />
                 </button>
@@ -450,7 +451,7 @@ function DealModal({ deal, onClose, onSaved }) {
                 <div key={q.id} className="flex items-center justify-between p-3 border-b border-gray-50">
                   <div>
                     <div className="text-sm font-semibold">{q.numero} — {q.titulo}</div>
-                    <div className="text-xs text-gray-400">{new Date(q.data).toLocaleDateString('pt-BR')}</div>
+                    <div className="text-xs text-gray-400">{fmtDate(q.data)}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-erplus-accent">{R$(q.valor)}</span>
@@ -472,7 +473,7 @@ function DealModal({ deal, onClose, onSaved }) {
                 <div key={c.id} className="flex items-center justify-between p-3 border-b border-gray-50">
                   <div>
                     <div className="text-sm font-semibold">{c.numero} — {c.titulo}</div>
-                    <div className="text-xs text-gray-400">Início: {new Date(c.dataInicio).toLocaleDateString('pt-BR')}</div>
+                    <div className="text-xs text-gray-400">Início: {fmtDate(c.dataInicio)}</div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-bold text-erplus-accent">{R$(c.valor)}</span>

@@ -29,5 +29,6 @@
     <ProjectReference Include="..\Modules\Automation\ERPlus.Modules.Automation.csproj" />
     <ProjectReference Include="..\Modules\Reports\ERPlus.Modules.Reports.csproj" />
     <ProjectReference Include="..\Modules\Config\ERPlus.Modules.Config.csproj" />
+    <ProjectReference Include="..\Modules\Notifications\ERPlus.Modules.Notifications.csproj" />
   </ItemGroup>
 </Project>
