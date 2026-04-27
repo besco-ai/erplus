@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import Select from '../../components/ui/Select';
 
 // ═══════════════ Utilities ═══════════════
 
@@ -73,13 +74,12 @@ function SimpleFormModal({ title, fields, initial, onClose, onSubmit, maxWidth }
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none font-mono"
               />
             ) : f.type === 'select' ? (
-              <select
+              <Select
                 value={form[f.key]}
-                onChange={(e) => setForm({ ...form, [f.key]: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm bg-white"
-              >
-                {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+                onChange={(v) => setForm({ ...form, [f.key]: v })}
+                options={f.options}
+                className="w-full"
+              />
             ) : (
               <input
                 type={f.type || 'text'}
@@ -383,14 +383,13 @@ function UsersPermissionsTab() {
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <select
+                  <Select
                     value={u.role}
-                    onChange={(e) => changeUserRole(u.id, e.target.value)}
+                    onChange={(v) => changeUserRole(u.id, v)}
+                    options={ROLE_COLUMNS.map(r => ({ value: r.id, label: r.id }))}
                     disabled={isYou}
-                    className="text-sm border border-gray-200 rounded-lg px-2 py-1.5 bg-white disabled:bg-gray-50"
-                  >
-                    {ROLE_COLUMNS.map(r => <option key={r.id} value={r.id}>{r.id}</option>)}
-                  </select>
+                    size="sm"
+                  />
                   <Badge color={u.role === 'Operador Master' ? 'rose' : u.role === 'Colaborador' ? 'blue' : 'gray'}>{u.role}</Badge>
                   {!isYou && (
                     <button onClick={() => deleteUser(u)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">

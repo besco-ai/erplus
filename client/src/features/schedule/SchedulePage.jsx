@@ -8,6 +8,7 @@ import useAuthStore from '../../hooks/useAuthStore';
 import DatePicker from '../../components/ui/DatePicker';
 import TimePicker from '../../components/ui/TimePicker';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const TYPES = ['geral', 'comercial', 'producao'];
 const TYPE_COLORS = { geral: '#10B981', comercial: '#C41E2A', producao: '#3B82F6' };
@@ -84,10 +85,12 @@ function EventModal({ event, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipo</label>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value, color: TYPE_COLORS[e.target.value] || form.color })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm capitalize">
-                {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <Select
+                value={form.type}
+                onChange={(v) => setForm({ ...form, type: v, color: TYPE_COLORS[v] || form.color })}
+                options={TYPES}
+                className="w-full"
+              />
             </div>
           </div>
           <div>
@@ -174,46 +177,57 @@ function AnnotationModal({ onClose, onSaved, users, selectedDate }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Recorrência</label>
-              <select value={form.recurrence} onChange={(e) => f('recurrence')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {RECURRENCES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <Select
+                value={form.recurrence}
+                onChange={(v) => f('recurrence')(v)}
+                options={RECURRENCES}
+                className="w-full"
+              />
             </div>
           </div>
           {/* Vincular a + Responsável */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a</label>
-              <select value={form.dealId} onChange={(e) => f('dealId')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                <option value="">— Nenhum —</option>
-              </select>
+              <Select
+                value={form.dealId}
+                onChange={(v) => f('dealId')(v)}
+                options={[]}
+                placeholder="— Nenhum —"
+                className="w-full"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Responsável</label>
-              <select value={form.responsibleId} onChange={(e) => f('responsibleId')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {users.length > 0
-                  ? users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)
-                  : <option value={currentUser?.id}>{currentUser?.name}</option>}
-              </select>
+              <Select
+                value={form.responsibleId}
+                onChange={(v) => f('responsibleId')(v)}
+                options={users.length > 0
+                  ? users.map((u) => ({ value: u.id, label: u.name }))
+                  : [{ value: currentUser?.id, label: currentUser?.name }]}
+                className="w-full"
+              />
             </div>
           </div>
           {/* Visibilidade + Tipo */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Visibilidade</label>
-              <select value={form.visibility} onChange={(e) => f('visibility')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {VISIBILITIES.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
+              <Select
+                value={form.visibility}
+                onChange={(v) => f('visibility')(v)}
+                options={VISIBILITIES}
+                className="w-full"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipo</label>
-              <select value={form.tipo} onChange={(e) => f('tipo')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {NOTE_TIPOS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <Select
+                value={form.tipo}
+                onChange={(v) => f('tipo')(v)}
+                options={NOTE_TIPOS}
+                className="w-full"
+              />
             </div>
           </div>
           {/* Observações */}
@@ -297,39 +311,47 @@ function TaskModal({ onClose, onSaved, users, selectedDate }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Recorrência</label>
-              <select value={form.recurrence} onChange={(e) => f('recurrence')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {RECURRENCES.map((r) => <option key={r} value={r}>{r}</option>)}
-              </select>
+              <Select
+                value={form.recurrence}
+                onChange={(v) => f('recurrence')(v)}
+                options={RECURRENCES}
+                className="w-full"
+              />
             </div>
           </div>
           {/* Vincular a + Responsável */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a</label>
-              <select value={form.dealId || ''} onChange={(e) => f('dealId')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                <option value="">— Nenhum —</option>
-              </select>
+              <Select
+                value={form.dealId || ''}
+                onChange={(v) => f('dealId')(v)}
+                options={[]}
+                placeholder="— Nenhum —"
+                className="w-full"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Responsável</label>
-              <select value={form.responsibleId} onChange={(e) => f('responsibleId')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {users.length > 0
-                  ? users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)
-                  : <option value={currentUser?.id}>{currentUser?.name}</option>
-                }
-              </select>
+              <Select
+                value={form.responsibleId}
+                onChange={(v) => f('responsibleId')(v)}
+                options={users.length > 0
+                  ? users.map((u) => ({ value: u.id, label: u.name }))
+                  : [{ value: currentUser?.id, label: currentUser?.name }]}
+                className="w-full"
+              />
             </div>
           </div>
           {/* Visibilidade */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Visibilidade</label>
-            <select value={form.visibility} onChange={(e) => f('visibility')(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              {VISIBILITIES.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
+            <Select
+              value={form.visibility}
+              onChange={(v) => f('visibility')(v)}
+              options={VISIBILITIES}
+              className="w-full"
+            />
           </div>
           {/* Observações */}
           <div>
@@ -489,11 +511,12 @@ export default function SchedulePage() {
 
         {/* Filtro usuário */}
         <div className="ml-auto">
-          <select value={userFilter} onChange={(e) => setUserFilter(e.target.value)}
-            className="px-3 py-1.5 border border-erplus-border rounded-lg text-xs text-gray-600 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20">
-            <option value="">Todos os usuários</option>
-            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-          </select>
+          <Select
+            value={userFilter}
+            onChange={(v) => setUserFilter(v)}
+            options={[{ value: '', label: 'Todos os usuários' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
+            size="sm"
+          />
         </div>
       </div>
 

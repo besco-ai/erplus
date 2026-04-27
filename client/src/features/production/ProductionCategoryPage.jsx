@@ -3,6 +3,7 @@ import { Plus, X, Save, Trash2, Edit, Clock } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate } from '../../utils/date';
 import DatePicker from '../../components/ui/DatePicker';
+import Select from '../../components/ui/Select';
 
 const STATUSES = ['Não iniciado', 'Em andamento', 'Em revisão', 'Finalizado'];
 
@@ -74,17 +75,12 @@ function ItemModal({ item, category, onClose, onSaved }) {
           {isEdit && (
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-              <select
+              <Select
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
-              >
-                {STATUSES.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, status: v })}
+                options={STATUSES}
+                className="w-full"
+              />
             </div>
           )}
         </div>
@@ -207,17 +203,12 @@ export default function ProductionCategoryPage({ category, label, color }) {
                       )}
                     </td>
                     <td className="px-5 py-3">
-                      <select
+                      <Select
                         value={item.status}
-                        onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                        className="px-2 py-1 border border-gray-200 rounded text-xs font-medium"
-                      >
-                        {STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {s}
-                          </option>
-                        ))}
-                      </select>
+                        onChange={(v) => handleStatusChange(item.id, v)}
+                        options={STATUSES}
+                        size="sm"
+                      />
                     </td>
                     <td className="px-5 py-3 text-right">
                       <div className="flex items-center justify-end gap-1">

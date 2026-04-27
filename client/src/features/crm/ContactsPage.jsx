@@ -7,6 +7,7 @@ import api from '../../services/api';
 import { useToast } from '../../components/ui/Toast';
 import DatePicker from '../../components/ui/DatePicker';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const UFS = ['AC','AL','AM','AP','BA','CE','DF','ES','GO','MA','MG','MS','MT','PA','PB','PE','PI','PR','RJ','RN','RO','RR','RS','SC','SE','SP','TO'];
 const TYPES = ['Lead', 'Cliente', 'Fornecedor', 'Relacionamento'];
@@ -77,9 +78,12 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
     <div className={`${span === 2 ? 'col-span-2' : ''}`}>
       <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">{label}</label>
       {options ? (
-        <select value={value} onChange={(e) => onChange(e.target.value)} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500">
-          {options.map((o) => typeof o === 'string' ? <option key={o} value={o}>{o}</option> : <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <Select
+          value={value}
+          onChange={(v) => onChange(v)}
+          options={options.map((o) => typeof o === 'string' ? { value: o, label: o } : o)}
+          className="w-full"
+        />
       ) : (
         <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500" />
@@ -428,14 +432,16 @@ export default function ContactsPage() {
 
       {showFilters && (
         <div className="flex gap-3 p-3 bg-white rounded-lg border border-gray-100">
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">
-            <option value="">Todos os tipos</option>
-            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
-          <select value={filterPerson} onChange={(e) => setFilterPerson(e.target.value)} className="px-3 py-2 border border-gray-200 rounded-lg text-sm">
-            <option value="">PF e PJ</option>
-            {PERSON_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-          </select>
+          <Select
+            value={filterType}
+            onChange={(v) => setFilterType(v)}
+            options={[{ value: '', label: 'Todos os tipos' }, ...TYPES.map((t) => ({ value: t, label: t }))]}
+          />
+          <Select
+            value={filterPerson}
+            onChange={(v) => setFilterPerson(v)}
+            options={[{ value: '', label: 'PF e PJ' }, ...PERSON_TYPES.map((t) => ({ value: t, label: t }))]}
+          />
           <button onClick={() => { setFilterType(''); setFilterPerson(''); }} className="text-xs text-gray-400 hover:text-red-500">Limpar</button>
         </div>
       )}

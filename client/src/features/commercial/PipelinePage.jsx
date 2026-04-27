@@ -7,6 +7,7 @@ import {
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -232,14 +233,13 @@ function DiligenceTab({ dealId, diligences, templates, onChanged }) {
       <div className="flex items-end gap-2 mb-4">
         <div className="flex-1">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Carregar template</label>
-          <select
+          <Select
             value={loadingId}
-            onChange={(e) => setLoadingId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
-          >
-            <option value="">Selecione um template...</option>
-            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+            onChange={(v) => setLoadingId(v)}
+            options={templates.map((t) => ({ value: t.id, label: t.name }))}
+            placeholder="Selecione um template..."
+            className="w-full"
+          />
         </div>
         <button
           onClick={load}
@@ -284,14 +284,13 @@ function BriefingTab({ dealId, briefings, templates, onChanged }) {
       <div className="flex items-end gap-2 mb-4">
         <div className="flex-1">
           <label className="block text-[11px] font-semibold text-gray-500 uppercase mb-1">Carregar template</label>
-          <select
+          <Select
             value={loadingId}
-            onChange={(e) => setLoadingId(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-200 rounded text-sm"
-          >
-            <option value="">Selecione um template...</option>
-            {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-          </select>
+            onChange={(v) => setLoadingId(v)}
+            options={templates.map((t) => ({ value: t.id, label: t.name }))}
+            placeholder="Selecione um template..."
+            className="w-full"
+          />
         </div>
         <button
           onClick={load}

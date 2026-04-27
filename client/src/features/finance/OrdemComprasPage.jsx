@@ -3,6 +3,7 @@ import { Plus, X, Save, Trash2, Edit, ShoppingCart } from 'lucide-react';
 import api from '../../services/api';
 import DatePicker from '../../components/ui/DatePicker';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -75,16 +76,13 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Fornecedor</label>
-              <select
+              <Select
                 value={form.fornecedorId}
-                onChange={(e) => setForm({ ...form, fornecedorId: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
-              >
-                <option value="">—</option>
-                {fornecedores.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, fornecedorId: v })}
+                options={fornecedores.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="—"
+                className="w-full"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Valor</label>
@@ -117,27 +115,23 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Centro de custo</label>
-              <select
+              <Select
                 value={form.costCenterId}
-                onChange={(e) => setForm({ ...form, costCenterId: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
-              >
-                <option value="">—</option>
-                {costCenters.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+                onChange={(v) => setForm({ ...form, costCenterId: v })}
+                options={costCenters.map((c) => ({ value: c.id, label: c.name }))}
+                placeholder="—"
+                className="w-full"
+              />
             </div>
             {isEdit && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-                <select
+                <Select
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
-                >
-                  {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                  onChange={(v) => setForm({ ...form, status: v })}
+                  options={STATUSES}
+                  className="w-full"
+                />
               </div>
             )}
           </div>
