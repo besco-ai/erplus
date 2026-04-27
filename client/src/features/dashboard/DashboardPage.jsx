@@ -4,6 +4,14 @@ import {
   FileText, ArrowRight, Clock, Star, Users, Activity,
   ArrowUpRight, ArrowDownRight, ChevronRight,
 } from 'lucide-react';
+
+const ACTIVITY_ICON = {
+  create:  { icon: ArrowRight,   bg: 'bg-blue-100',   color: 'text-blue-500'  },
+  move:    { icon: ArrowRight,   bg: 'bg-blue-100',   color: 'text-blue-500'  },
+  quote:   { icon: FileText,     bg: 'bg-red-100',    color: 'text-erplus-accent' },
+  task:    { icon: CheckSquare,  bg: 'bg-amber-100',  color: 'text-amber-500' },
+  event:   { icon: Calendar,     bg: 'bg-purple-100', color: 'text-purple-500'},
+};
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
 import PdfPreviewModal from '../../components/ui/PdfPreviewModal';
@@ -238,7 +246,34 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Row 4: Team + Projects — Visitante vê só projects */}
+      {/* Row 4: Recent Activity */}
+      {(d.recentActivity?.length > 0) && (
+        <div className="bg-white rounded-xl shadow-sm p-5">
+          <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2 mb-4">
+            <Activity size={15} className="text-erplus-accent" />
+            Atividades Recentes
+          </h3>
+          <div className="space-y-0">
+            {d.recentActivity.map((a, i) => {
+              const cfg = ACTIVITY_ICON[a.type] ?? ACTIVITY_ICON.create;
+              const Icon = cfg.icon;
+              return (
+                <div key={i} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${cfg.bg}`}>
+                    <Icon size={14} className={cfg.color} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-800 truncate">{a.text}</div>
+                    <div className="text-xs text-gray-400">{a.date}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Row 5: Team + Projects */}
       <div className={`grid grid-cols-1 gap-4 ${canSeeTeam ? 'md:grid-cols-2' : ''}`}>
         {canSeeTeam && (
           <div className="bg-white rounded-xl shadow-sm p-5">
