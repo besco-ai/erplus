@@ -52,7 +52,7 @@ function ItemModal({ item, category, onClose, onSaved }) {
             <input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+              className="w-full"
             />
           </div>
           <div>
@@ -69,7 +69,7 @@ function ItemModal({ item, category, onClose, onSaved }) {
             <DatePicker
               value={form.due}
               onChange={(v) => setForm({ ...form, due: v })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+              className="w-full"
             />
           </div>
           {isEdit && (

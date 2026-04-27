@@ -70,7 +70,7 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
             <input
               value={form.titulo}
               onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+              className="w-full"
             />
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -90,7 +90,7 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
                 type="number" step="0.01"
                 value={form.valor}
                 onChange={(e) => setForm({ ...form, valor: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+                className="w-full"
               />
             </div>
           </div>
@@ -100,7 +100,7 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
               <DatePicker
                 value={form.data}
                 onChange={(v) => setForm({ ...form, data: v })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+                className="w-full"
               />
             </div>
             <div>
@@ -108,7 +108,7 @@ function OrdemModal({ item, fornecedores, costCenters, onClose, onSaved }) {
               <DatePicker
                 value={form.prazoEntrega}
                 onChange={(v) => setForm({ ...form, prazoEntrega: v })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm"
+                className="w-full"
               />
             </div>
           </div>

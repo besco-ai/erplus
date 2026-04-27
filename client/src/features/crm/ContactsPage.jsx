@@ -86,7 +86,7 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
         />
       ) : (
         <input type={type} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
-          className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500" />
+          className="w-full" />
       )}
     </div>
   );
@@ -117,7 +117,7 @@ function ContactModal({ contact, contacts, onClose, onSaved }) {
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Aniversário</label>
                 <DatePicker value={form.birthday} onChange={(v) => set('birthday', v)}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500" />
+                  className="w-full" />
               </div>
               <Field label="Vinculado a (PJ)" value={form.linkedToId}
                 onChange={(v) => set('linkedToId', v)}

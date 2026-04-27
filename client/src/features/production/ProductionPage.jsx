@@ -49,7 +49,7 @@ function ItemModal({ item, activeCategory, onClose, onSaved }) {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título *</label>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição</label>
@@ -67,7 +67,7 @@ function ItemModal({ item, activeCategory, onClose, onSaved }) {
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
-              <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })} className="w-full" />
             </div>
           </div>
           {isEdit && (

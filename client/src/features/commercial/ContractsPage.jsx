@@ -75,18 +75,18 @@ function ContractModal({ onClose, onSaved }) {
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título</label>
             <input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              className="w-full" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Valor</label>
               <input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data fim</label>
               <DatePicker value={form.dataFim} onChange={(v) => setForm({ ...form, dataFim: v })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
           </div>
         </div>

@@ -69,7 +69,7 @@ function EventModal({ event, onClose, onSaved }) {
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
               <DatePicker value={form.date} onChange={(v) => f('date')(v)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Horário</label>
@@ -81,7 +81,7 @@ function EventModal({ event, onClose, onSaved }) {
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Duração (min)</label>
               <input type="number" min={15} step={15} value={form.durationMinutes} onChange={(e) => f('durationMinutes')(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipo</label>
@@ -173,7 +173,7 @@ function AnnotationModal({ onClose, onSaved, users, selectedDate }) {
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
               <DatePicker value={form.date} onChange={(v) => f('date')(v)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Recorrência</label>
@@ -307,7 +307,7 @@ function TaskModal({ onClose, onSaved, users, selectedDate }) {
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
               <DatePicker value={form.due} onChange={(v) => f('due')(v)}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Recorrência</label>

@@ -64,15 +64,15 @@ function EntryModal({ entry, costCenters, bankAccounts, onClose, onSaved }) {
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
-            <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} className="w-full" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição *</label>
-            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Valor *</label>
-            <input type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <input type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} className="w-full" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
