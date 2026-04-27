@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, X, Save, ChevronLeft, ChevronRight, Clock, Trash2,
   Edit, Calendar, CheckSquare, LayoutList, CalendarDays, StickyNote,
-  RotateCw,
+  RotateCw, AlertTriangle,
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
@@ -509,6 +509,89 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
   );
 }
 
+// ─── Delete Confirm Modal ────────────────────────────────────────────────────
+function DeleteConfirmModal({ entry, onClose, onDeleteOne, onDeleteSeries }) {
+  const isTask    = entry._isTask;
+  const isAnnot   = isAnnotation(entry);
+  const isSeries  = !!entry.recurrenceId;
+  const [loading, setLoading] = useState(false);
+
+  const label = isTask ? 'tarefa' : isAnnot ? 'anotação' : 'evento';
+  const icon  = isTask ? '☑' : isAnnot ? '📝' : '📅';
+
+  const handle = async (fn) => {
+    setLoading(true);
+    try { await fn(); } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+        {/* Icon */}
+        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 mx-auto mb-4">
+          <AlertTriangle size={22} className="text-erplus-accent" />
+        </div>
+
+        <h3 className="text-base font-bold text-center text-gray-900 mb-1">
+          Excluir {label}?
+        </h3>
+        <p className="text-sm text-gray-500 text-center mb-1">
+          <span className="font-semibold text-gray-700">{icon} {entry.title}</span>
+        </p>
+
+        {isSeries && (
+          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 text-center mt-2 mb-1 flex items-center gap-1.5 justify-center">
+            <RotateCw size={12} />
+            Este item faz parte de uma série recorrente
+          </p>
+        )}
+
+        <div className={`mt-5 flex flex-col gap-2 ${!isSeries ? 'flex-col-reverse' : ''}`}>
+          {isSeries && (
+            <>
+              <button
+                onClick={() => handle(onDeleteOne)}
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:bg-gray-50 transition disabled:opacity-50"
+              >
+                Excluir só este
+              </button>
+              <button
+                onClick={() => handle(onDeleteSeries)}
+                disabled={loading}
+                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-erplus-accent hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                <RotateCw size={14} />
+                Excluir toda a série
+              </button>
+            </>
+          )}
+
+          {!isSeries && (
+            <button
+              onClick={() => handle(onDeleteOne)}
+              disabled={loading}
+              className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-erplus-accent hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              <Trash2 size={14} />
+              {loading ? 'Excluindo...' : `Excluir ${label}`}
+            </button>
+          )}
+
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="w-full px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-gray-700 transition disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Entry Row (day-view + list-view) ────────────────────────────────────────
 function EntryRow({ ev, onEdit, onDelete }) {
   const isAnnot = isAnnotation(ev);
@@ -592,9 +675,10 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState('mes'); // 'dia' | 'mes' | 'ano'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [userFilter, setUserFilter] = useState('');
-  const [users, setUsers]     = useState([]);
-  const [deals, setDeals]     = useState([]);
+  const [users, setUsers]       = useState([]);
+  const [deals, setDeals]       = useState([]);
   const [projects, setProjects] = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState(null); // entry to confirm-delete
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -666,11 +750,19 @@ export default function SchedulePage() {
   };
   const goToday = () => setCurrentDate(new Date());
 
-  const handleDelete = async (ev) => {
-    const isTask = ev._isTask;
-    if (!confirm(isTask ? 'Excluir tarefa?' : 'Excluir evento?')) return;
-    if (isTask) await api.delete(`/tasks/${ev.id}`);
-    else        await api.delete(`/schedule/events/${ev.id}`);
+  // Opens the confirm modal — actual delete is handled inside DeleteConfirmModal
+  const handleDelete = (ev) => setDeleteTarget(ev);
+
+  const execDeleteOne = async (ev) => {
+    if (ev._isTask) await api.delete(`/tasks/${ev.id}`);
+    else            await api.delete(`/schedule/events/${ev.id}`);
+    setDeleteTarget(null);
+    fetchEvents();
+  };
+
+  const execDeleteSeries = async (ev) => {
+    await api.delete(`/schedule/events/series/${ev.recurrenceId}`);
+    setDeleteTarget(null);
     fetchEvents();
   };
 
@@ -886,6 +978,15 @@ export default function SchedulePage() {
       {modal && modal !== 'newEvent' && modal !== 'newTask' && modal !== 'newAnnotation' && (
         <EventModal event={modal} onClose={() => setModal(null)} onSaved={fetchEvents}
           users={users} deals={deals} projects={projects} />
+      )}
+
+      {deleteTarget && (
+        <DeleteConfirmModal
+          entry={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onDeleteOne={() => execDeleteOne(deleteTarget)}
+          onDeleteSeries={() => execDeleteSeries(deleteTarget)}
+        />
       )}
     </div>
   );
