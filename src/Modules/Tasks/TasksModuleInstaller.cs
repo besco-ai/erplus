@@ -31,8 +31,8 @@ public class TasksModuleInstaller : IModuleInstaller
         group.MapGet("/summary", async (int? responsibleId, TaskService svc) =>
             Results.Ok((await svc.GetSummaryAsync(responsibleId)).Data));
 
-        group.MapGet("/", async (string? status, int? responsibleId, int? dealId, int? projectId, string? category, bool? overdue, TaskService svc) =>
-            Results.Ok((await svc.GetAllAsync(status, responsibleId, dealId, projectId, category, overdue)).Data));
+        group.MapGet("/", async (string? status, int? responsibleId, int? dealId, int? projectId, string? category, bool? overdue, DateTime? dueFrom, DateTime? dueTo, TaskService svc) =>
+            Results.Ok((await svc.GetAllAsync(status, responsibleId, dealId, projectId, category, overdue, dueFrom, dueTo)).Data));
 
         group.MapGet("/{id:int}", async (int id, TaskService svc) =>
         {

@@ -40,7 +40,8 @@ public class TaskService
     }
 
     public async Task<Result<List<TaskDto>>> GetAllAsync(
-        string? status, int? responsibleId, int? dealId, int? projectId, string? category, bool? overdue)
+        string? status, int? responsibleId, int? dealId, int? projectId, string? category, bool? overdue,
+        DateTime? dueFrom = null, DateTime? dueTo = null)
     {
         var query = _db.Tasks.AsQueryable();
         if (!string.IsNullOrEmpty(status)) query = query.Where(t => t.Status == status);
@@ -48,6 +49,8 @@ public class TaskService
         if (dealId.HasValue) query = query.Where(t => t.DealId == dealId.Value);
         if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
         if (!string.IsNullOrEmpty(category)) query = query.Where(t => t.Category == category);
+        if (dueFrom.HasValue) { var f = DateTime.SpecifyKind(dueFrom.Value, DateTimeKind.Utc); query = query.Where(t => t.Due >= f); }
+        if (dueTo.HasValue)   { var t2 = DateTime.SpecifyKind(dueTo.Value.AddDays(1), DateTimeKind.Utc); query = query.Where(t => t.Due < t2); }
 
         var today = DateTime.UtcNow.Date;
         if (overdue == true)

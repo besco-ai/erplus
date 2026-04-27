@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Plus, X, Save, ChevronLeft, ChevronRight, Clock, Trash2,
   Edit, Calendar, CheckSquare, LayoutList, CalendarDays, StickyNote,
+  RotateCw,
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
@@ -265,6 +266,8 @@ function AnnotationModal({ onClose, onSaved, users, deals, selectedDate }) {
         notes: form.notes || null,
         responsibleId: Number(form.responsibleId),
         refId: form.dealId ? Number(form.dealId) : null,
+        recurrence: form.recurrence,
+        visibility: form.visibility,
       });
       onSaved(); onClose();
     } catch (err) { setError(err.response?.data?.error || 'Erro ao criar anotação'); }
@@ -389,19 +392,31 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
 
   const f = (k) => (v) => setForm((p) => ({ ...p, [k]: v }));
 
+  const genDates = (start, rec) => {
+    if (!start || rec === 'Sem recorrência') return [start];
+    const base = new Date(start + 'T12:00:00');
+    if (rec === 'Diariamente')  return Array.from({ length: 30 }, (_, i) => { const d = new Date(base); d.setDate(d.getDate() + i); return d.toISOString().slice(0, 10); });
+    if (rec === 'Semanalmente') return Array.from({ length: 12 }, (_, i) => { const d = new Date(base); d.setDate(d.getDate() + i * 7); return d.toISOString().slice(0, 10); });
+    if (rec === 'Mensalmente')  return Array.from({ length: 12 }, (_, i) => { const d = new Date(base); d.setMonth(d.getMonth() + i); return d.toISOString().slice(0, 10); });
+    return [start];
+  };
+
   const handleSave = async () => {
     if (!form.title.trim()) { setError('Título obrigatório'); return; }
     setSaving(true); setError('');
     try {
-      await api.post('/tasks', {
-        title: form.title,
-        description: form.description || null,
-        responsibleId: Number(form.responsibleId),
-        due: form.due || null,
-        dealId: form.dealId ? Number(form.dealId) : null,
-        projectId: form.projectId ? Number(form.projectId) : null,
-        category: null,
-      });
+      const dates = genDates(form.due, form.recurrence);
+      await Promise.all(dates.map((due) =>
+        api.post('/tasks', {
+          title: form.title,
+          description: form.description || null,
+          responsibleId: Number(form.responsibleId),
+          due: due || null,
+          dealId: form.dealId ? Number(form.dealId) : null,
+          projectId: form.projectId ? Number(form.projectId) : null,
+          category: null,
+        })
+      ));
       onSaved(); onClose();
     } catch (err) { setError(err.response?.data?.error || 'Erro ao criar tarefa'); }
     finally { setSaving(false); }
@@ -494,9 +509,84 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
   );
 }
 
+// ─── Entry Row (day-view + list-view) ────────────────────────────────────────
+function EntryRow({ ev, onEdit, onDelete }) {
+  const isAnnot = isAnnotation(ev);
+  const isTask  = ev._isTask;
+  const color   = isTask ? '#3B82F6' : isAnnot ? '#F59E0B' : (ev.color || '#6B7280');
+
+  const badge = isTask
+    ? <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${ev.status === 'Finalizado' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-600'}`}>Tarefa · {ev.status}</span>
+    : isAnnot
+    ? <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-amber-100 text-amber-700">Anotação</span>
+    : <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold capitalize" style={{ background: color + '22', color }}>{ev.type}</span>;
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 hover:bg-gray-50/60 rounded-lg px-2 transition-colors">
+      <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ background: color }} />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold truncate">{ev.title}</span>
+          {ev.recurrenceId && <RotateCw size={11} className="text-gray-400 flex-shrink-0" title="Recorrente" />}
+          {badge}
+        </div>
+        <div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5 flex-wrap">
+          <span>{fmtDate(ev.date)}</span>
+          {ev.time && <span className="flex items-center gap-0.5"><Clock size={10} />{ev.time}</span>}
+          {!isTask && !isAnnot && ev.durationMinutes > 0 && <span>{ev.durationMinutes}min</span>}
+        </div>
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        <button onClick={onEdit} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit size={14} /></button>
+        <button onClick={onDelete} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={14} /></button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Calendar Chip ───────────────────────────────────────────────────────────
+function CalendarChip({ ev, onClick }) {
+  const isAnnot = isAnnotation(ev);
+  const isTask  = ev._isTask;
+
+  if (isTask) {
+    const done = ev.status === 'Finalizado';
+    return (
+      <div onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className={`flex items-center gap-1 text-[10px] px-1.5 py-[3px] rounded-md mb-0.5 cursor-pointer font-medium border-l-2 transition-all hover:brightness-95 ${done ? 'bg-green-50 border-green-400 text-green-700' : 'bg-blue-50 border-blue-400 text-blue-700'}`}>
+        <CheckSquare size={8} className={`flex-shrink-0 ${done ? 'text-green-500' : 'text-blue-400'}`} />
+        <span className={`truncate leading-tight ${done ? 'line-through opacity-60' : ''}`}>{ev.title}</span>
+      </div>
+    );
+  }
+
+  if (isAnnot) {
+    return (
+      <div onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="flex items-center gap-1 text-[10px] px-1.5 py-[3px] rounded-md mb-0.5 cursor-pointer font-medium bg-amber-50 border-l-2 border-amber-400 text-amber-800 transition-all hover:brightness-95">
+        <StickyNote size={8} className="text-amber-500 flex-shrink-0" />
+        <span className="truncate leading-tight">{ev.title}</span>
+      </div>
+    );
+  }
+
+  // Regular event
+  const color = ev.color || '#6B7280';
+  return (
+    <div onClick={(e) => { e.stopPropagation(); onClick(); }}
+      className="flex items-center gap-1 text-[10px] px-1.5 py-[3px] rounded-md mb-0.5 cursor-pointer font-medium transition-all hover:brightness-95"
+      style={{ background: color + '22', borderLeft: `2px solid ${color}`, color }}>
+      {ev.recurrenceId && <RotateCw size={7} className="flex-shrink-0 opacity-70" />}
+      {ev.time && <span className="font-bold flex-shrink-0">{ev.time}</span>}
+      <span className="truncate leading-tight text-gray-800">{ev.title}</span>
+    </div>
+  );
+}
+
 // ─── Página Principal ────────────────────────────────────────────────────────
 export default function SchedulePage() {
   const [events, setEvents] = useState([]);
+  const [tasks,  setTasks]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);        // null | 'newEvent' | 'newTask' | {event obj}
   const [viewMode, setViewMode] = useState('mes'); // 'dia' | 'mes' | 'ano'
@@ -542,8 +632,22 @@ export default function SchedulePage() {
         from = new Date(year, month, 1).toISOString().slice(0, 10);
         to = new Date(year, month + 1, 0).toISOString().slice(0, 10);
       }
-      const { data } = await api.get(`/schedule/events?from=${from}&to=${to}`);
-      setEvents(data);
+      const [evRes, taskRes] = await Promise.allSettled([
+        api.get(`/schedule/events?from=${from}&to=${to}`),
+        api.get(`/tasks?dueFrom=${from}&dueTo=${to}`),
+      ]);
+      if (evRes.status === 'fulfilled') setEvents(evRes.value.data || []);
+      if (taskRes.status === 'fulfilled') {
+        // Normalize tasks so they look like calendar entries
+        const raw = Array.isArray(taskRes.value.data) ? taskRes.value.data : taskRes.value.data?.items ?? [];
+        setTasks(raw.map((t) => ({
+          ...t,
+          _isTask: true,
+          date: t.due,
+          type: 'task',
+          color: '#3B82F6',
+        })));
+      }
     } catch { /* silent */ } finally { setLoading(false); }
   }, [year, month, day, viewMode]);
 
@@ -562,16 +666,19 @@ export default function SchedulePage() {
   };
   const goToday = () => setCurrentDate(new Date());
 
-  const handleDelete = async (id) => {
-    if (!confirm('Excluir evento?')) return;
-    await api.delete(`/schedule/events/${id}`);
+  const handleDelete = async (ev) => {
+    const isTask = ev._isTask;
+    if (!confirm(isTask ? 'Excluir tarefa?' : 'Excluir evento?')) return;
+    if (isTask) await api.delete(`/tasks/${ev.id}`);
+    else        await api.delete(`/schedule/events/${ev.id}`);
     fetchEvents();
   };
 
-  // Filtered events
+  // Merge events + tasks and apply user filter
+  const allEntries = [...events, ...tasks];
   const filteredEvents = userFilter
-    ? events.filter((e) => String(e.userId) === userFilter || String(e.responsibleId) === userFilter)
-    : events;
+    ? allEntries.filter((e) => String(e.userId) === userFilter || String(e.responsibleId) === userFilter)
+    : allEntries;
 
   // ── Calendar grid (Mês) ──
   const firstDay = new Date(year, month, 1).getDay();
@@ -676,23 +783,7 @@ export default function SchedulePage() {
               {filteredEvents
                 .filter(e => e.date?.slice(0, 10) === currentDate.toISOString().slice(0, 10))
                 .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-                .map((ev) => (
-                  <div key={ev.id} className="flex items-center gap-3 p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
-                    <div className="w-1 h-12 rounded-full flex-shrink-0" style={{ background: ev.color || '#6B7280' }} />
-                    <div className="flex-1">
-                      <div className="text-sm font-semibold">{ev.title}</div>
-                      <div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
-                        {ev.time && <span><Clock size={10} className="inline mr-1" />{ev.time}</span>}
-                        <span>{ev.durationMinutes}min</span>
-                        <span className="capitalize">{ev.type}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setModal(ev)} className="p-1.5 text-gray-400 hover:text-blue-600 rounded-lg"><Edit size={14} /></button>
-                      <button onClick={() => handleDelete(ev.id)} className="p-1.5 text-gray-400 hover:text-red-600 rounded-lg"><Trash2 size={14} /></button>
-                    </div>
-                  </div>
-                ))}
+                .map((ev) => <EntryRow key={`${ev._isTask ? 't' : 'e'}-${ev.id}`} ev={ev} onEdit={() => setModal(ev)} onDelete={() => handleDelete(ev)} />)}
             </div>
           )}
         </div>
@@ -719,12 +810,7 @@ export default function SchedulePage() {
                         {d}
                       </div>
                       {dayEvents.slice(0, 3).map((ev) => (
-                        <div key={ev.id}
-                          onClick={(e) => { e.stopPropagation(); setModal(ev); }}
-                          className={`text-[10px] px-1.5 py-0.5 rounded mb-0.5 truncate cursor-pointer font-medium hover:opacity-90 flex items-center gap-0.5 ${isAnnotation(ev) ? 'text-amber-800 bg-amber-100 border border-amber-200' : 'text-white'}`}
-                          style={isAnnotation(ev) ? {} : { background: ev.color || '#6B7280' }}>
-                          {isAnnotation(ev) && '📝 '}{ev.time && !isAnnotation(ev) && `${ev.time} `}{ev.title}
-                        </div>
+                        <CalendarChip key={`${ev._isTask ? 'task' : 'ev'}-${ev.id}`} ev={ev} onClick={() => setModal(ev)} />
                       ))}
                       {dayEvents.length > 3 && <div className="text-[10px] text-gray-400 pl-1">+{dayEvents.length - 3} mais</div>}
                     </>
@@ -775,24 +861,9 @@ export default function SchedulePage() {
           {filteredEvents.length === 0 ? (
             <p className="text-center py-6 text-gray-400 text-sm">Nenhum evento neste período</p>
           ) : (
-            filteredEvents.map((ev) => (
-              <div key={ev.id} className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
-                <div className="w-1 h-10 rounded-full flex-shrink-0" style={{ background: ev.color || '#6B7280' }} />
-                <div className="flex-1">
-                  <div className="text-sm font-semibold">{ev.title}</div>
-                  <div className="text-xs text-gray-400 flex items-center gap-2">
-                    <span>{fmtDate(ev.date)}</span>
-                    {ev.time && <span><Clock size={10} className="inline" /> {ev.time}</span>}
-                    <span>{ev.durationMinutes}min</span>
-                    <span className="capitalize">{ev.type}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button onClick={() => setModal(ev)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
-                  <button onClick={() => handleDelete(ev.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
-                </div>
-              </div>
-            ))
+            filteredEvents
+              .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.time || '').localeCompare(b.time || ''))
+              .map((ev) => <EntryRow key={`${ev._isTask ? 't' : 'e'}-${ev.id}`} ev={ev} onEdit={() => setModal(ev)} onDelete={() => handleDelete(ev)} />)
           )}
         </div>
       )}
