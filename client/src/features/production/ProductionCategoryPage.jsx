@@ -261,17 +261,17 @@ export default function ProductionCategoryPage({ category, label, color }) {
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setView('list')}
-              className={`p-1.5 rounded-md transition ${view === 'list' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Visualização em lista"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${view === 'list' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              <LayoutList size={15} />
+              <LayoutList size={14} />
+              Lista
             </button>
             <button
               onClick={() => setView('kanban')}
-              className={`p-1.5 rounded-md transition ${view === 'kanban' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Visualização Kanban"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${view === 'kanban' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              <Kanban size={15} />
+              <Kanban size={14} />
+              Kanban
             </button>
           </div>
           <button

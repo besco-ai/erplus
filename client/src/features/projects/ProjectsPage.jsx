@@ -223,17 +223,17 @@ export default function ProjectsPage() {
           <div className="flex items-center bg-gray-100 rounded-lg p-1">
             <button
               onClick={() => setView('kanban')}
-              className={`p-1.5 rounded-md transition ${view === 'kanban' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Visualização Kanban"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${view === 'kanban' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              <Kanban size={15} />
+              <Kanban size={14} />
+              Kanban
             </button>
             <button
               onClick={() => setView('grid')}
-              className={`p-1.5 rounded-md transition ${view === 'grid' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
-              title="Visualização em grade"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${view === 'grid' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
             >
-              <LayoutGrid size={15} />
+              <LayoutGrid size={14} />
+              Grade
             </button>
           </div>
           <button className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
