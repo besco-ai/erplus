@@ -10,96 +10,217 @@ import TimePicker from '../../components/ui/TimePicker';
 import { fmtDate } from '../../utils/date';
 import Select from '../../components/ui/Select';
 
-const TYPES = ['geral', 'comercial', 'producao'];
-const TYPE_COLORS = { geral: '#10B981', comercial: '#C41E2A', producao: '#3B82F6' };
+const EVENT_CATEGORIES = [
+  { value: 'geral',      label: 'Geral',      color: '#10B981' },
+  { value: 'reuniao',    label: 'Reunião',     color: '#8B5CF6' },
+  { value: 'comercial',  label: 'Comercial',   color: '#C41E2A' },
+  { value: 'producao',   label: 'Produção',    color: '#3B82F6' },
+  { value: 'pessoal',    label: 'Pessoal',     color: '#F59E0B' },
+];
 const NOTE_TIPOS = ['Geral', 'Comercial', 'Produção', 'Reunião', 'Pessoal'];
-const NOTE_COLOR = '#F59E0B'; // âmbar para anotações
+const NOTE_COLOR = '#F59E0B';
 const RECURRENCES = ['Sem recorrência', 'Diariamente', 'Semanalmente', 'Mensalmente'];
-const VISIBILITIES = ['Compartilhada (todos)', 'Privada (só eu)'];
+const VISIBILITIES = [
+  { value: 'compartilhada', label: 'Compartilhada (todos)' },
+  { value: 'privada',       label: 'Particular (só eu)' },
+];
+const REF_TYPES = [
+  { value: '',        label: '— Nenhum —' },
+  { value: 'deal',    label: 'Negócio' },
+  { value: 'project', label: 'Empreendimento' },
+];
 
 const isAnnotation = (ev) => ev?.type?.startsWith('anotacao');
 const MONTH_NAMES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 const DAY_NAMES = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
-// ─── Modal: Novo Evento ──────────────────────────────────────────────────────
-function EventModal({ event, onClose, onSaved }) {
+// ─── Modal: Novo / Editar Evento ─────────────────────────────────────────────
+function EventModal({ event, onClose, onSaved, users, deals, projects }) {
+  const { user: currentUser } = useAuthStore();
   const isEdit = !!event;
+
+  const catColor = (type) => EVENT_CATEGORIES.find((c) => c.value === type)?.color || '#10B981';
+
   const [form, setForm] = useState({
-    title: event?.title || '',
-    date: event?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-    time: event?.time || '09:00',
+    title:           event?.title || '',
+    date:            event?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    time:            event?.time || '09:00',
     durationMinutes: event?.durationMinutes || 60,
-    type: event?.type || 'geral',
-    color: event?.color || '#10B981',
-    notes: event?.notes || '',
+    type:            event?.type || 'geral',
+    recurrence:      event?.recurrence || 'Sem recorrência',
+    refType:         event?.refType || '',
+    refId:           event?.refId || '',
+    responsibleId:   event?.responsibleId || currentUser?.id || 1,
+    visibility:      event?.visibility || 'compartilhada',
+    notes:           event?.notes || '',
   });
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
   const f = (k) => (v) => setForm((p) => ({ ...p, [k]: v }));
 
+  // Opções de vínculo dependem do refType
+  const refOptions = form.refType === 'deal'
+    ? deals.map((d) => ({ value: d.id, label: d.title }))
+    : form.refType === 'project'
+    ? projects.map((p) => ({ value: p.id, label: p.title }))
+    : [];
+
   const handleSave = async () => {
     if (!form.title.trim()) { setError('Título obrigatório'); return; }
     setSaving(true); setError('');
     try {
-      const payload = { ...form, durationMinutes: Number(form.durationMinutes) };
+      const payload = {
+        title:           form.title.trim(),
+        date:            form.date,
+        time:            form.time,
+        durationMinutes: Number(form.durationMinutes),
+        type:            form.type,
+        color:           catColor(form.type),
+        recurrence:      form.recurrence,
+        refType:         form.refType || null,
+        refId:           form.refId ? Number(form.refId) : null,
+        responsibleId:   Number(form.responsibleId),
+        visibility:      form.visibility,
+        notes:           form.notes || null,
+      };
       if (isEdit) await api.put(`/schedule/events/${event.id}`, payload);
-      else await api.post('/schedule/events', payload);
+      else        await api.post('/schedule/events', payload);
       onSaved(); onClose();
     } catch (err) { setError(err.response?.data?.error || 'Erro ao salvar'); }
     finally { setSaving(false); }
   };
 
+  const userOptions = users.length > 0
+    ? users.map((u) => ({ value: u.id, label: u.name }))
+    : [{ value: currentUser?.id, label: currentUser?.name }];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold">{isEdit ? 'Editar Evento' : 'Novo Evento'}</h3>
+          <h3 className="text-lg font-bold flex items-center gap-2">
+            <span className="w-3 h-3 rounded-full inline-block" style={{ background: catColor(form.type) }} />
+            {isEdit ? 'Editar Evento' : 'Novo Evento'}
+          </h3>
           <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600"><X size={20} /></button>
         </div>
+
         <div className="space-y-4">
+          {/* Título */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título *</label>
             <input value={form.title} onChange={(e) => f('title')(e.target.value)}
+              placeholder="Ex: Reunião com cliente"
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-erplus-accent/20" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          {/* Data + Horário */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
-              <DatePicker value={form.date} onChange={(v) => f('date')(v)}
-                className="w-full" />
+              <DatePicker value={form.date} onChange={f('date')} className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Horário</label>
-              <TimePicker value={form.time} onChange={(v) => f('time')(v)}
-                className="w-full" />
+              <TimePicker value={form.time} onChange={f('time')} className="w-full" />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          {/* Duração + Recorrência */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Duração (min)</label>
-              <input type="number" min={15} step={15} value={form.durationMinutes} onChange={(e) => f('durationMinutes')(e.target.value)}
-                className="w-full" />
+              <input type="number" min={15} step={15} value={form.durationMinutes}
+                onChange={(e) => f('durationMinutes')(e.target.value)} className="w-full" />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipo</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Recorrência</label>
+              <Select value={form.recurrence} onChange={f('recurrence')} options={RECURRENCES} className="w-full" />
+            </div>
+          </div>
+
+          {form.recurrence !== 'Sem recorrência' && (
+            <div className="p-2.5 bg-blue-50 rounded-lg text-xs text-blue-700 font-medium">
+              {{
+                'Diariamente':  '30 ocorrências — todos os dias a partir da data escolhida',
+                'Semanalmente': '12 ocorrências — uma vez por semana durante 3 meses',
+                'Mensalmente':  '12 ocorrências — uma vez por mês durante 1 ano',
+              }[form.recurrence]}
+            </div>
+          )}
+
+          {/* Vincular a */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+              Vincular a <span className="text-gray-400 normal-case font-normal">(liga o evento a um negócio ou empreendimento)</span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <Select
+                value={form.refType}
+                onChange={(v) => setForm((p) => ({ ...p, refType: v, refId: '' }))}
+                options={REF_TYPES}
+                className="w-full"
+              />
+              {form.refType ? (
+                <Select
+                  value={form.refId}
+                  onChange={f('refId')}
+                  options={[{ value: '', label: '— Selecionar —' }, ...refOptions]}
+                  className="w-full"
+                  placeholder="— Selecionar —"
+                />
+              ) : (
+                <div className="flex items-center px-3 text-xs text-gray-400 border border-gray-200 rounded-lg bg-gray-50">
+                  Selecione o tipo primeiro
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Responsável + Categoria */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Responsável</label>
+              <Select value={form.responsibleId} onChange={f('responsibleId')} options={userOptions} className="w-full" />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">
+                Categoria <span className="text-gray-400 normal-case font-normal">(tipo do evento)</span>
+              </label>
               <Select
                 value={form.type}
-                onChange={(v) => setForm({ ...form, type: v, color: TYPE_COLORS[v] || form.color })}
-                options={TYPES}
+                onChange={f('type')}
+                options={EVENT_CATEGORIES.map((c) => ({ value: c.value, label: c.label }))}
                 className="w-full"
               />
             </div>
           </div>
+
+          {/* Visibilidade */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Notas</label>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Visibilidade</label>
+            <Select value={form.visibility} onChange={f('visibility')} options={VISIBILITIES} className="w-full" />
+            {form.visibility === 'privada' && (
+              <p className="text-xs text-gray-400 mt-1">Apenas você verá este evento na agenda.</p>
+            )}
+            {form.visibility === 'compartilhada' && (
+              <p className="text-xs text-gray-400 mt-1">Todos os membros da equipe poderão ver este evento.</p>
+            )}
+          </div>
+
+          {/* Observações */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Observações</label>
             <textarea value={form.notes} onChange={(e) => f('notes')(e.target.value)} rows={2}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none" />
           </div>
         </div>
+
         {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
+
         <div className="flex justify-end gap-2 mt-6">
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition">Cancelar</button>
           <button onClick={handleSave} disabled={saving}
@@ -113,7 +234,7 @@ function EventModal({ event, onClose, onSaved }) {
 }
 
 // ─── Modal: Nova Anotação ────────────────────────────────────────────────────
-function AnnotationModal({ onClose, onSaved, users, selectedDate }) {
+function AnnotationModal({ onClose, onSaved, users, deals, selectedDate }) {
   const { user: currentUser } = useAuthStore();
   const [form, setForm] = useState({
     title: '',
@@ -188,11 +309,11 @@ function AnnotationModal({ onClose, onSaved, users, selectedDate }) {
           {/* Vincular a + Responsável */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a negócio</label>
               <Select
                 value={form.dealId}
                 onChange={(v) => f('dealId')(v)}
-                options={[]}
+                options={[{ value: '', label: '— Nenhum —' }, ...(deals || []).map((d) => ({ value: d.id, label: d.title }))]}
                 placeholder="— Nenhum —"
                 className="w-full"
               />
@@ -251,7 +372,7 @@ function AnnotationModal({ onClose, onSaved, users, selectedDate }) {
 }
 
 // ─── Modal: Nova Tarefa ──────────────────────────────────────────────────────
-function TaskModal({ onClose, onSaved, users, selectedDate }) {
+function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
   const { user: currentUser } = useAuthStore();
   const [form, setForm] = useState({
     title: '',
@@ -322,11 +443,11 @@ function TaskModal({ onClose, onSaved, users, selectedDate }) {
           {/* Vincular a + Responsável */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a</label>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a negócio</label>
               <Select
                 value={form.dealId || ''}
                 onChange={(v) => f('dealId')(v)}
-                options={[]}
+                options={[{ value: '', label: '— Nenhum —' }, ...(deals || []).map((d) => ({ value: d.id, label: d.title }))]}
                 placeholder="— Nenhum —"
                 className="w-full"
               />
@@ -381,15 +502,31 @@ export default function SchedulePage() {
   const [viewMode, setViewMode] = useState('mes'); // 'dia' | 'mes' | 'ano'
   const [currentDate, setCurrentDate] = useState(new Date());
   const [userFilter, setUserFilter] = useState('');
-  const [users, setUsers] = useState([]);
+  const [users, setUsers]     = useState([]);
+  const [deals, setDeals]     = useState([]);
+  const [projects, setProjects] = useState([]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
   const day = currentDate.getDate();
 
-  // Fetch users for filter + responsável
+  // Fetch users, deals and projects for dropdowns
   useEffect(() => {
-    api.get('/identity/users').then(({ data }) => setUsers(data)).catch(() => {});
+    Promise.allSettled([
+      api.get('/identity/users'),
+      api.get('/commercial/deals'),
+      api.get('/projects'),
+    ]).then(([uRes, dRes, pRes]) => {
+      if (uRes.status === 'fulfilled') setUsers(uRes.value.data || []);
+      if (dRes.status === 'fulfilled') {
+        const d = dRes.value.data;
+        setDeals(Array.isArray(d) ? d : d?.items ?? []);
+      }
+      if (pRes.status === 'fulfilled') {
+        const d = pRes.value.data;
+        setProjects(Array.isArray(d) ? d : d?.items ?? []);
+      }
+    });
   }, []);
 
   const fetchEvents = useCallback(async () => {
@@ -662,18 +799,22 @@ export default function SchedulePage() {
 
       {/* ── Modais ── */}
       {modal === 'newEvent' && (
-        <EventModal event={null} onClose={() => setModal(null)} onSaved={fetchEvents} />
+        <EventModal event={null} onClose={() => setModal(null)} onSaved={fetchEvents}
+          users={users} deals={deals} projects={projects} />
       )}
       {modal === 'newTask' && (
         <TaskModal onClose={() => setModal(null)} onSaved={fetchEvents} users={users}
+          deals={deals} projects={projects}
           selectedDate={currentDate.toISOString().slice(0, 10)} />
       )}
       {modal === 'newAnnotation' && (
         <AnnotationModal onClose={() => setModal(null)} onSaved={fetchEvents} users={users}
+          deals={deals}
           selectedDate={currentDate.toISOString().slice(0, 10)} />
       )}
       {modal && modal !== 'newEvent' && modal !== 'newTask' && modal !== 'newAnnotation' && (
-        <EventModal event={modal} onClose={() => setModal(null)} onSaved={fetchEvents} />
+        <EventModal event={modal} onClose={() => setModal(null)} onSaved={fetchEvents}
+          users={users} deals={deals} projects={projects} />
       )}
     </div>
   );
