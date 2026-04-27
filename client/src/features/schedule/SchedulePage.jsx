@@ -511,13 +511,12 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
 
 // ─── Delete Confirm Modal ────────────────────────────────────────────────────
 function DeleteConfirmModal({ entry, onClose, onDeleteOne, onDeleteSeries }) {
-  const isTask    = entry._isTask;
-  const isAnnot   = isAnnotation(entry);
-  const isSeries  = !!entry.recurrenceId;
+  const isTask   = entry._isTask;
+  const isAnnot  = isAnnotation(entry);
+  const isSeries = !!entry.recurrenceId;
   const [loading, setLoading] = useState(false);
 
   const label = isTask ? 'tarefa' : isAnnot ? 'anotação' : 'evento';
-  const icon  = isTask ? '☑' : isAnnot ? '📝' : '📅';
 
   const handle = async (fn) => {
     setLoading(true);
@@ -525,67 +524,57 @@ function DeleteConfirmModal({ entry, onClose, onDeleteOne, onDeleteSeries }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        {/* Icon */}
-        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-red-50 mx-auto mb-4">
-          <AlertTriangle size={22} className="text-erplus-accent" />
-        </div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-5">
 
-        <h3 className="text-base font-bold text-center text-gray-900 mb-1">
-          Excluir {label}?
+        {/* Title + subtitle */}
+        <h3 className="text-sm font-bold text-gray-900">
+          Excluir {label} &ldquo;{entry.title}&rdquo;?
         </h3>
-        <p className="text-sm text-gray-500 text-center mb-1">
-          <span className="font-semibold text-gray-700">{icon} {entry.title}</span>
+        <p className="text-xs text-gray-500 mt-1">
+          {isSeries
+            ? 'Este item faz parte de uma série recorrente. Escolha o que deseja excluir.'
+            : 'Esta ação não pode ser desfeita.'}
         </p>
 
-        {isSeries && (
-          <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 text-center mt-2 mb-1 flex items-center gap-1.5 justify-center">
-            <RotateCw size={12} />
-            Este item faz parte de uma série recorrente
-          </p>
-        )}
+        {/* Buttons */}
+        <div className="flex items-center justify-end gap-2 mt-4">
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800 transition disabled:opacity-50"
+          >
+            Cancelar
+          </button>
 
-        <div className={`mt-5 flex flex-col gap-2 ${!isSeries ? 'flex-col-reverse' : ''}`}>
-          {isSeries && (
+          {isSeries ? (
             <>
               <button
                 onClick={() => handle(onDeleteOne)}
                 disabled={loading}
-                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-gray-700 border border-gray-200 hover:bg-gray-50 transition disabled:opacity-50"
+                className="px-4 py-2 text-sm font-semibold text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50 transition disabled:opacity-50"
               >
-                Excluir só este
+                Só este
               </button>
               <button
                 onClick={() => handle(onDeleteSeries)}
                 disabled={loading}
-                className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-erplus-accent hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+                className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 transition disabled:opacity-50 flex items-center gap-1.5"
               >
-                <RotateCw size={14} />
-                Excluir toda a série
+                <RotateCw size={13} />
+                {loading ? 'Excluindo...' : 'Toda a série'}
               </button>
             </>
-          )}
-
-          {!isSeries && (
+          ) : (
             <button
               onClick={() => handle(onDeleteOne)}
               disabled={loading}
-              className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold text-white bg-erplus-accent hover:bg-red-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
+              className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 transition disabled:opacity-50"
             >
-              <Trash2 size={14} />
-              {loading ? 'Excluindo...' : `Excluir ${label}`}
+              {loading ? 'Excluindo...' : 'Excluir'}
             </button>
           )}
-
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="w-full px-4 py-2 rounded-xl text-sm font-semibold text-gray-500 hover:text-gray-700 transition disabled:opacity-50"
-          >
-            Cancelar
-          </button>
         </div>
       </div>
     </div>
