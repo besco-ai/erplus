@@ -3,6 +3,7 @@ import { Plus, X, Save, FileText, Edit, Trash2, Check, XCircle, RotateCcw } from
 import api from '../../services/api';
 import DatePicker from '../../components/ui/DatePicker';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -51,33 +52,35 @@ function QuoteModal({ quote, onClose, onSaved }) {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Negócio *</label>
-            <select value={form.dealId} onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              <option value="">— Selecionar —</option>
-              {deals.map((d) => <option key={d.id} value={d.id}>{d.title || `Deal #${d.id}`}</option>)}
-            </select>
+            <Select
+              value={form.dealId}
+              onChange={(v) => setForm({ ...form, dealId: v })}
+              options={deals.map((d) => ({ value: d.id, label: d.title || `Deal #${d.id}` }))}
+              placeholder="— Selecionar —"
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título *</label>
             <input value={form.titulo} onChange={(e) => setForm({ ...form, titulo: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              className="w-full" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Valor *</label>
               <input type="number" step="0.01" value={form.valor} onChange={(e) => setForm({ ...form, valor: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Validade</label>
               <DatePicker value={form.validade} onChange={(v) => setForm({ ...form, validade: v })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+                className="w-full" />
             </div>
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Condições de pagamento</label>
             <input value={form.conditions} onChange={(e) => setForm({ ...form, conditions: e.target.value })}
-              placeholder="Ex: 3x sem juros" className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              placeholder="Ex: 3x sem juros" className="w-full" />
           </div>
         </div>
         {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}

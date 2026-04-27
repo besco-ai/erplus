@@ -4,6 +4,7 @@ import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
 import { fmtDate } from '../../utils/date';
 import DatePicker from '../../components/ui/DatePicker';
+import Select from '../../components/ui/Select';
 
 const CATEGORIES = [
   { key: 'licenciamentos', label: 'Licenciamentos', color: '#F59E0B' },
@@ -48,7 +49,7 @@ function ItemModal({ item, activeCategory, onClose, onSaved }) {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título *</label>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição</label>
@@ -57,21 +58,27 @@ function ItemModal({ item, activeCategory, onClose, onSaved }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Categoria</label>
-              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {CATEGORIES.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
-              </select>
+              <Select
+                value={form.category}
+                onChange={(v) => setForm({ ...form, category: v })}
+                options={CATEGORIES.map((c) => ({ value: c.key, label: c.label }))}
+                className="w-full"
+              />
             </div>
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
-              <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+              <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })} className="w-full" />
             </div>
           </div>
           {isEdit && (
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
+              <Select
+                value={form.status}
+                onChange={(v) => setForm({ ...form, status: v })}
+                options={STATUSES}
+                className="w-full"
+              />
             </div>
           )}
         </div>
@@ -179,10 +186,12 @@ export default function ProductionPage({ mine = false }) {
                     ) : <span className="text-gray-300 text-sm">—</span>}
                   </td>
                   <td className="px-5 py-3">
-                    <select value={item.status} onChange={(e) => handleStatusChange(item.id, e.target.value)}
-                      className="px-2 py-1 border border-gray-200 rounded text-xs font-medium">
-                      {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
+                    <Select
+                      value={item.status}
+                      onChange={(v) => handleStatusChange(item.id, v)}
+                      options={STATUSES}
+                      size="sm"
+                    />
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex items-center justify-end gap-1">

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, HelpCircle, Trash2, MessageSquare, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const CATEGORIES = ['Geral', 'Bug', 'Melhoria', 'Dúvida'];
 const PRIORITIES = ['Baixa', 'Normal', 'Alta', 'Urgente'];
@@ -68,26 +69,32 @@ function TicketModal({ ticket, onClose, onSaved }) {
             {!isEdit && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Categoria</label>
-                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                  {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <Select
+                  value={form.category}
+                  onChange={(v) => setForm({ ...form, category: v })}
+                  options={CATEGORIES}
+                  className="w-full"
+                />
               </div>
             )}
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prioridade</label>
-              <select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <Select
+                value={form.priority}
+                onChange={(v) => setForm({ ...form, priority: v })}
+                options={PRIORITIES}
+                className="w-full"
+              />
             </div>
             {isEdit && (
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                  {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
+                <Select
+                  value={form.status}
+                  onChange={(v) => setForm({ ...form, status: v })}
+                  options={STATUSES}
+                  className="w-full"
+                />
               </div>
             )}
           </div>

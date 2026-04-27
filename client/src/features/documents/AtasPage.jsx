@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Plus, X, Save, FileText, Trash2, ExternalLink, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 function AtaModal({ deals, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -32,10 +33,12 @@ function AtaModal({ deals, onClose, onSaved }) {
         <div className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Negócio vinculado *</label>
-            <select value={form.dealId} onChange={(e) => setForm({ ...form, dealId: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              {deals.map((d) => <option key={d.id} value={d.id}>{d.title || `Deal #${d.id}`}</option>)}
-            </select>
+            <Select
+              value={form.dealId}
+              onChange={(v) => setForm({ ...form, dealId: v })}
+              options={deals.map((d) => ({ value: d.id, label: d.title || `Deal #${d.id}` }))}
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título *</label>

@@ -40,7 +40,8 @@ public class TaskService
     }
 
     public async Task<Result<List<TaskDto>>> GetAllAsync(
-        string? status, int? responsibleId, int? dealId, int? projectId, string? category, bool? overdue)
+        string? status, int? responsibleId, int? dealId, int? projectId, string? category, bool? overdue,
+        DateTime? dueFrom = null, DateTime? dueTo = null)
     {
         var query = _db.Tasks.AsQueryable();
         if (!string.IsNullOrEmpty(status)) query = query.Where(t => t.Status == status);
@@ -48,6 +49,8 @@ public class TaskService
         if (dealId.HasValue) query = query.Where(t => t.DealId == dealId.Value);
         if (projectId.HasValue) query = query.Where(t => t.ProjectId == projectId.Value);
         if (!string.IsNullOrEmpty(category)) query = query.Where(t => t.Category == category);
+        if (dueFrom.HasValue) { var f = DateTime.SpecifyKind(dueFrom.Value, DateTimeKind.Utc); query = query.Where(t => t.Due >= f); }
+        if (dueTo.HasValue)   { var t2 = DateTime.SpecifyKind(dueTo.Value.AddDays(1), DateTimeKind.Utc); query = query.Where(t => t.Due < t2); }
 
         var today = DateTime.UtcNow.Date;
         if (overdue == true)
@@ -58,7 +61,8 @@ public class TaskService
                 t.Id, t.DealId, t.ProjectId, t.Title, t.Description,
                 t.Status, t.ResponsibleId, t.Due, t.SubtasksJson,
                 t.Category, t.CreatedAt,
-                t.Status != "Finalizado" && t.Due.HasValue && t.Due.Value.Date < today))
+                t.Status != "Finalizado" && t.Due.HasValue && t.Due.Value.Date < today,
+                t.Recurrence, t.RecurrenceId))
             .ToListAsync();
 
         return Result<List<TaskDto>>.Success(items);
@@ -74,7 +78,8 @@ public class TaskService
             t.Id, t.DealId, t.ProjectId, t.Title, t.Description,
             t.Status, t.ResponsibleId, t.Due, t.SubtasksJson,
             t.Category, t.CreatedAt,
-            t.Status != "Finalizado" && t.Due.HasValue && t.Due.Value.Date < today));
+            t.Status != "Finalizado" && t.Due.HasValue && t.Due.Value.Date < today,
+            t.Recurrence, t.RecurrenceId));
     }
 
     public async Task<Result<TaskDto>> CreateAsync(CreateTaskRequest r)
@@ -91,7 +96,9 @@ public class TaskService
             Due = ToUtc(r.Due),
             DealId = r.DealId,
             ProjectId = r.ProjectId,
-            Category = r.Category
+            Category = r.Category,
+            Recurrence = r.Recurrence,
+            RecurrenceId = r.RecurrenceId,
         };
 
         _db.Tasks.Add(task);
@@ -100,7 +107,7 @@ public class TaskService
         return Result<TaskDto>.Created(new TaskDto(
             task.Id, task.DealId, task.ProjectId, task.Title, task.Description,
             task.Status, task.ResponsibleId, task.Due, null, task.Category,
-            task.CreatedAt, false));
+            task.CreatedAt, false, task.Recurrence, task.RecurrenceId));
     }
 
     public async Task<Result<TaskDto>> UpdateAsync(int id, UpdateTaskRequest r)
@@ -141,7 +148,8 @@ public class TaskService
             task.Id, task.DealId, task.ProjectId, task.Title, task.Description,
             task.Status, task.ResponsibleId, task.Due, task.SubtasksJson,
             task.Category, task.CreatedAt,
-            task.Status != "Finalizado" && task.Due.HasValue && task.Due.Value.Date < today));
+            task.Status != "Finalizado" && task.Due.HasValue && task.Due.Value.Date < today,
+            task.Recurrence, task.RecurrenceId));
     }
 
     private async Task RunTaskCompleteAutomationsAsync(TaskItem completed)
@@ -176,6 +184,37 @@ public class TaskService
         if (task is null) return Result<bool>.NotFound();
         task.IsDeleted = true;
         task.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Result<bool>.Success(true);
+    }
+
+    public async Task<Result<List<TaskSeriesDto>>> GetSeriesAsync()
+    {
+        // Fetch in memory to avoid EF Core GroupBy + First() translation issues on PostgreSQL
+        var tasks = await _db.Tasks
+            .Where(t => t.RecurrenceId != null)
+            .OrderBy(t => t.Due)
+            .ToListAsync();
+
+        var result = tasks
+            .GroupBy(t => t.RecurrenceId!)
+            .Select(g => new TaskSeriesDto(
+                g.Key,
+                g.First().Title,
+                g.First().Recurrence ?? "Recorrente",
+                g.Count(),
+                g.Min(t => t.Due).HasValue ? g.Min(t => t.Due)!.Value.ToString("yyyy-MM-dd") : "",
+                g.Max(t => t.Due).HasValue ? g.Max(t => t.Due)!.Value.ToString("yyyy-MM-dd") : ""))
+            .OrderBy(s => s.FirstDate)
+            .ToList();
+
+        return Result<List<TaskSeriesDto>>.Success(result);
+    }
+
+    public async Task<Result<bool>> DeleteSeriesAsync(string recurrenceId)
+    {
+        var tasks = await _db.Tasks.Where(t => t.RecurrenceId == recurrenceId).ToListAsync();
+        foreach (var t in tasks) { t.IsDeleted = true; t.UpdatedAt = DateTime.UtcNow; }
         await _db.SaveChangesAsync();
         return Result<bool>.Success(true);
     }

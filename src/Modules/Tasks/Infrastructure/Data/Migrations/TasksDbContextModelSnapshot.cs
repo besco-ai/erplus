@@ -53,6 +53,12 @@ namespace ERPlus.Modules.Tasks.Infrastructure.Data.Migrations
                     b.Property<int?>("ProjectId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Recurrence")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecurrenceId")
+                        .HasColumnType("text");
+
                     b.Property<int>("ResponsibleId")
                         .HasColumnType("integer");
 

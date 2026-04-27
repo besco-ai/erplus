@@ -6,6 +6,7 @@ import {
 import api from '../../services/api';
 import DatePicker from '../../components/ui/DatePicker';
 import { fmtDate } from '../../utils/date';
+import Select from '../../components/ui/Select';
 
 const R$ = (v) => 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
 
@@ -54,42 +55,51 @@ function EntryModal({ entry, costCenters, bankAccounts, onClose, onSaved }) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Tipo</label>
-            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              <option value="receita">Receita</option>
-              <option value="despesa">Despesa</option>
-            </select>
+            <Select
+              value={form.type}
+              onChange={(v) => setForm({ ...form, type: v })}
+              options={[{ value: 'receita', label: 'Receita' }, { value: 'despesa', label: 'Despesa' }]}
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Data</label>
-            <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <DatePicker value={form.date} onChange={(v) => setForm({ ...form, date: v })} className="w-full" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição *</label>
-            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="w-full" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Valor *</label>
-            <input type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm" />
+            <input type="number" step="0.01" value={form.value} onChange={(e) => setForm({ ...form, value: e.target.value })} className="w-full" />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-            <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              <option value="Em aberto">Em aberto</option>
-              <option value="Efetuado">Efetuado</option>
-              <option value="Vencido">Vencido</option>
-            </select>
+            <Select
+              value={form.status}
+              onChange={(v) => setForm({ ...form, status: v })}
+              options={[{ value: 'Em aberto', label: 'Em aberto' }, { value: 'Efetuado', label: 'Efetuado' }, { value: 'Vencido', label: 'Vencido' }]}
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Centro de Custo</label>
-            <select value={form.costCenterId} onChange={(e) => setForm({ ...form, costCenterId: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              {costCenters.map((cc) => <option key={cc.id} value={cc.id}>{cc.name}</option>)}
-            </select>
+            <Select
+              value={form.costCenterId}
+              onChange={(v) => setForm({ ...form, costCenterId: v })}
+              options={costCenters.map((cc) => ({ value: cc.id, label: cc.name }))}
+              className="w-full"
+            />
           </div>
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Conta</label>
-            <select value={form.accountId} onChange={(e) => setForm({ ...form, accountId: e.target.value })} className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-              {bankAccounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
+            <Select
+              value={form.accountId}
+              onChange={(v) => setForm({ ...form, accountId: v })}
+              options={bankAccounts.map((a) => ({ value: a.id, label: a.name }))}
+              className="w-full"
+            />
           </div>
         </div>
         {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}

@@ -123,6 +123,52 @@ public class DashboardService
                 t.Due?.ToString("yyyy-MM-dd") ?? "", t.ResponsibleId))
             .ToList();
 
+        // Recent activity — last 60 days, up to 15 items across deals, quotes, tasks
+        var since = today.AddDays(-60);
+        var activityRaw = new List<(DateTime Date, string Text, string Type)>();
+
+        var recentDeals = await _commercial.Deals
+            .Where(d => !d.IsDeleted && d.CreatedAt >= since)
+            .OrderByDescending(d => d.CreatedAt)
+            .Take(6).ToListAsync();
+        activityRaw.AddRange(recentDeals.Select(d =>
+            (d.CreatedAt, $"Criado: {d.Title}", "create")));
+
+        var movedDeals = await _commercial.Deals
+            .Where(d => !d.IsDeleted && d.UpdatedAt != null && d.UpdatedAt >= since)
+            .OrderByDescending(d => d.UpdatedAt)
+            .Take(6).ToListAsync();
+        activityRaw.AddRange(movedDeals.Select(d =>
+            (d.UpdatedAt!.Value, $"Movido: {d.Title}", "move")));
+
+        var recentQuotes = await _commercial.Quotes
+            .Where(q => !q.IsDeleted && q.CreatedAt >= since)
+            .OrderByDescending(q => q.CreatedAt)
+            .Take(6).ToListAsync();
+        activityRaw.AddRange(recentQuotes.Select(q =>
+            (q.CreatedAt, $"Orçamento: {q.Numero}", "quote")));
+
+        var doneTasks = await _tasks.Tasks
+            .Where(t => !t.IsDeleted && t.Status == "Finalizado"
+                     && t.UpdatedAt != null && t.UpdatedAt >= since)
+            .OrderByDescending(t => t.UpdatedAt)
+            .Take(6).ToListAsync();
+        activityRaw.AddRange(doneTasks.Select(t =>
+            (t.UpdatedAt!.Value, $"Tarefa concluída: {t.Title}", "task")));
+
+        var recentEvents = await _schedule.Events
+            .Where(e => e.CreatedAt >= since)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(4).ToListAsync();
+        activityRaw.AddRange(recentEvents.Select(e =>
+            (e.CreatedAt, $"Evento: {e.Title}", "event")));
+
+        var timelineItems = activityRaw
+            .OrderByDescending(a => a.Date)
+            .Take(15)
+            .Select(a => new TimelineItemDto(a.Text, a.Date.ToString("yyyy-MM-dd"), a.Type))
+            .ToList();
+
         return Result<DashboardDto>.Success(new DashboardDto(
             activeDeals.Count, activeDeals.Sum(d => d.Value),
             projects.Count, projByStageStr,
@@ -132,7 +178,7 @@ public class DashboardService
             todayEvents.Count,
             totalReceitas, totalDespesas, totalReceitas - totalDespesas,
             funnel, todayEvents, overdueList,
-            new List<TimelineItemDto>(),
+            timelineItems,
             teamPerf, projByStage));
     }
 }

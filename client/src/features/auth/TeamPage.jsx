@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Plus, Edit, Trash2, Shield, X, Save, RotateCcw } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
+import Select from '../../components/ui/Select';
 
 const ROLES = ['Operador Master', 'Colaborador', 'Visitante'];
 
@@ -78,15 +79,12 @@ function UserModal({ user, onClose, onSaved }) {
           )}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Perfil</label>
-            <select
+            <Select
               value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-100 focus:border-red-500"
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
+              onChange={(v) => setForm({ ...form, role: v })}
+              options={ROLES}
+              className="w-full"
+            />
           </div>
         </div>
 
