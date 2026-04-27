@@ -265,10 +265,14 @@ export default function ProductionCategoryPage({ category, label, color }) {
 
   return (
     <div className="space-y-4">
+      {/* ── Title ── */}
+      <div className="flex items-center gap-3">
+        {color && <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />}
+        <h1 className="text-xl font-extrabold text-erplus-text">{label}</h1>
+      </div>
+
       {/* ── Header row ── */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Color dot + title (hidden on small but good to keep) */}
-        {color && <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />}
 
         {/* Search */}
         <div className="relative flex-1 min-w-[180px] max-w-xs">
