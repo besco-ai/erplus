@@ -57,6 +57,16 @@ public class TasksModuleInstaller : IModuleInstaller
             var r = await svc.DeleteAsync(id);
             return r.IsSuccess ? Results.NoContent() : Results.NotFound();
         });
+
+        // Séries recorrentes
+        group.MapGet("/series", async (TaskService svc) =>
+            Results.Ok((await svc.GetSeriesAsync()).Data));
+
+        group.MapDelete("/series/{recurrenceId}", async (string recurrenceId, TaskService svc) =>
+        {
+            var r = await svc.DeleteSeriesAsync(recurrenceId);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
+        });
     }
 
     public void UsePipeline(IApplicationBuilder app)

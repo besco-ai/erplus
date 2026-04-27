@@ -12,5 +12,7 @@ public class TaskItem : BaseEntity
     public int ResponsibleId { get; set; }
     public DateTime? Due { get; set; }
     public string? SubtasksJson { get; set; }
-    public string? Category { get; set; } // licenciamentos, projetos, design, etc.
+    public string? Category { get; set; }
+    public string? Recurrence { get; set; }   // Sem recorrência | Diariamente | Semanalmente | Mensalmente
+    public string? RecurrenceId { get; set; } // GUID que agrupa tarefas de uma mesma série
 }

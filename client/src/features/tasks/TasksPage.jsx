@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Plus, X, Save, CheckSquare, Clock, AlertCircle,
-  Edit, Trash2, ChevronRight, User,
+  Edit, Trash2, ChevronRight, User, Search, Calendar,
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
@@ -89,6 +89,8 @@ function TaskModal({ task, onClose, onSaved }) {
   const [newSub, setNewSub] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const addSub = () => {
     if (!newSub.trim()) return;
@@ -121,9 +123,11 @@ function TaskModal({ task, onClose, onSaved }) {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Excluir esta tarefa?')) return;
-    await api.delete(`/tasks/${task.id}`);
-    onSaved(); onClose();
+    setDeleting(true);
+    try {
+      await api.delete(`/tasks/${task.id}`);
+      onSaved(); onClose();
+    } catch { setDeleting(false); }
   };
 
   return (
@@ -193,13 +197,31 @@ function TaskModal({ task, onClose, onSaved }) {
 
         {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
 
+        {/* Confirmação de exclusão inline */}
+        {confirmDelete && (
+          <div className="mt-4 flex items-center justify-between gap-3 px-4 py-3 bg-red-50 rounded-xl border border-red-100">
+            <p className="text-sm text-red-700 font-medium">Excluir &ldquo;{task.title}&rdquo;? Esta ação não pode ser desfeita.</p>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={() => setConfirmDelete(false)}
+                className="px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-800 transition">
+                Cancelar
+              </button>
+              <button onClick={handleDelete} disabled={deleting}
+                className="px-3 py-1.5 text-xs font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 transition disabled:opacity-50">
+                {deleting ? 'Excluindo...' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="flex justify-between mt-6">
-          {isEdit && (
-            <button onClick={handleDelete} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-semibold flex items-center gap-1">
+          {isEdit && !confirmDelete && (
+            <button onClick={() => setConfirmDelete(true)}
+              className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-semibold flex items-center gap-1 hover:bg-red-100 transition">
               <Trash2 size={12} /> Excluir
             </button>
           )}
-          <div className={`flex gap-2 ${!isEdit ? 'ml-auto' : ''}`}>
+          <div className={`flex gap-2 ${!isEdit || confirmDelete ? 'ml-auto' : ''}`}>
             <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">Cancelar</button>
             <button onClick={handleSave} disabled={saving}
               className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
@@ -212,12 +234,33 @@ function TaskModal({ task, onClose, onSaved }) {
   );
 }
 
+const DUE_OPTIONS = [
+  { value: '',        label: 'Qualquer prazo' },
+  { value: 'today',  label: 'Hoje' },
+  { value: 'week',   label: 'Esta semana' },
+  { value: 'month',  label: 'Este mês' },
+  { value: 'overdue',label: 'Atrasadas' },
+];
+
+const ORIGIN_OPTIONS = [
+  { value: '',            label: 'Todas origens' },
+  { value: 'deal',        label: 'Negócio' },
+  { value: 'project',     label: 'Empreendimento' },
+  { value: 'none',        label: 'Sem vínculo' },
+];
+
 export default function TasksPage({ mine = false }) {
   const [tasks, setTasks] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
   const { user } = useAuthStore();
+
+  // Filters
+  const [search, setSearch]           = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [filterOrigin, setFilterOrigin] = useState('');
+  const [filterDue, setFilterDue]       = useState('');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -241,17 +284,35 @@ export default function TasksPage({ mine = false }) {
     } catch { /* silent */ }
   };
 
+  // Client-side filtering
+  const filtered = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(today); weekEnd.setDate(weekEnd.getDate() + 7);
+    const monthEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+    return tasks.filter((t) => {
+      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+      if (filterStatus && t.status !== filterStatus) return false;
+      if (filterOrigin === 'deal'    && !t.dealId)                       return false;
+      if (filterOrigin === 'project' && !t.projectId)                    return false;
+      if (filterOrigin === 'none'    && (t.dealId || t.projectId))       return false;
+      if (filterDue) {
+        const due = t.due ? new Date(t.due.slice(0, 10) + 'T00:00:00') : null;
+        if (filterDue === 'today'  && (!due || due.getTime() !== today.getTime())) return false;
+        if (filterDue === 'week'   && (!due || due < today || due > weekEnd))      return false;
+        if (filterDue === 'month'  && (!due || due < today || due > monthEnd))     return false;
+        if (filterDue === 'overdue'&& (!due || due >= today || t.status === 'Finalizado')) return false;
+      }
+      return true;
+    });
+  }, [tasks, search, filterStatus, filterOrigin, filterDue]);
+
+  const hasFilter = search || filterStatus || filterOrigin || filterDue;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-extrabold text-erplus-text">Tarefas</h1>
-          {summary && (
-            <p className="text-sm text-erplus-text-muted mt-1">
-              {summary.total} tarefa(s) · {summary.atrasadas > 0 && <span className="text-red-500 font-semibold">{summary.atrasadas} atrasada(s)</span>}
-            </p>
-          )}
-        </div>
+        <h1 className="text-xl font-extrabold text-erplus-text">Tarefas</h1>
         <button onClick={() => setModal('new')}
           className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
           <Plus size={16} /> Nova Tarefa
@@ -262,11 +323,11 @@ export default function TasksPage({ mine = false }) {
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           {[
-            { label: 'Total', value: summary.total, color: 'text-gray-700' },
+            { label: 'Total',        value: summary.total,       color: 'text-gray-700' },
             { label: 'Não iniciado', value: summary.naoIniciado, color: 'text-gray-500' },
             { label: 'Em andamento', value: summary.emAndamento, color: 'text-blue-600' },
-            { label: 'Em revisão', value: summary.emRevisao, color: 'text-amber-600' },
-            { label: 'Atrasadas', value: summary.atrasadas, color: summary.atrasadas > 0 ? 'text-red-600' : 'text-gray-400' },
+            { label: 'Em revisão',   value: summary.emRevisao,   color: 'text-amber-600' },
+            { label: 'Atrasadas',    value: summary.atrasadas,   color: summary.atrasadas > 0 ? 'text-red-600' : 'text-gray-400' },
           ].map((kpi, i) => (
             <div key={i} className="bg-white rounded-xl shadow-sm p-3 text-center">
               <div className={`text-2xl font-extrabold ${kpi.color}`}>{kpi.value}</div>
@@ -275,6 +336,64 @@ export default function TasksPage({ mine = false }) {
           ))}
         </div>
       )}
+
+      {/* ── Filter bar ── */}
+      <div className="bg-white rounded-xl shadow-sm px-4 py-3 flex items-center gap-3 flex-wrap">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[180px]">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar tarefa..."
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-erplus-accent/20"
+          />
+        </div>
+
+        {/* Status */}
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 cursor-pointer"
+        >
+          <option value="">Todos status</option>
+          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        {/* Origens */}
+        <select
+          value={filterOrigin}
+          onChange={(e) => setFilterOrigin(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 cursor-pointer"
+        >
+          {ORIGIN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        {/* Prazo */}
+        <select
+          value={filterDue}
+          onChange={(e) => setFilterDue(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 cursor-pointer flex items-center gap-1"
+        >
+          {DUE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        {/* Count + clear */}
+        <div className="flex items-center gap-2 ml-auto flex-shrink-0">
+          <span className="text-xs font-semibold text-gray-500 whitespace-nowrap">
+            {filtered.length} tarefa{filtered.length !== 1 ? 's' : ''}
+          </span>
+          {hasFilter && (
+            <button
+              onClick={() => { setSearch(''); setFilterStatus(''); setFilterOrigin(''); setFilterDue(''); }}
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition"
+              title="Limpar filtros"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Kanban */}
       {loading ? (
@@ -285,7 +404,7 @@ export default function TasksPage({ mine = false }) {
             <KanbanColumn
               key={status}
               status={status}
-              tasks={tasks}
+              tasks={filtered}
               onTaskClick={(t) => setModal(t)}
               onDrop={handleDrop}
             />

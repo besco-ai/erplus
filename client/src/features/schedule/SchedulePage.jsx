@@ -406,6 +406,7 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
     setSaving(true); setError('');
     try {
       const dates = genDates(form.due, form.recurrence);
+      const recurrenceId = dates.length > 1 ? crypto.randomUUID() : null;
       await Promise.all(dates.map((due) =>
         api.post('/tasks', {
           title: form.title,
@@ -415,6 +416,8 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
           dealId: form.dealId ? Number(form.dealId) : null,
           projectId: form.projectId ? Number(form.projectId) : null,
           category: null,
+          recurrence: form.recurrence !== 'Sem recorrência' ? form.recurrence : null,
+          recurrenceId,
         })
       ));
       onSaved(); onClose();
@@ -511,30 +514,43 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
 
 // ─── Recurrence Manager Modal ────────────────────────────────────────────────
 function RecurrenceManagerModal({ onClose, onChanged }) {
-  const [series, setSeries]   = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(null); // recurrenceId being deleted
+  const [series, setSeries]     = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [deleting, setDeleting] = useState(null);   // recurrenceId being deleted
+  const [confirm, setConfirm]   = useState(null);   // recurrenceId awaiting confirmation
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/schedule/events/series');
-      setSeries(data || []);
+      const [evRes, taskRes] = await Promise.allSettled([
+        api.get('/schedule/events/series'),
+        api.get('/tasks/series'),
+      ]);
+      const evSeries   = evRes.status   === 'fulfilled' ? (evRes.value.data   || []) : [];
+      const taskSeries = taskRes.status === 'fulfilled' ? (taskRes.value.data || []) : [];
+      // Tag tasks so we know which endpoint to call on delete
+      const tagged = [
+        ...evSeries.map((s) => ({ ...s, _isTask: false })),
+        ...taskSeries.map((s) => ({ ...s, _isTask: true, type: 'task', color: '#3B82F6' })),
+      ].sort((a, b) => (a.firstDate || '').localeCompare(b.firstDate || ''));
+      setSeries(tagged);
     } catch { /* silent */ } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
-  const handleDelete = async (recurrenceId) => {
-    setDeleting(recurrenceId);
+  const handleDelete = async (s) => {
+    setDeleting(s.recurrenceId);
+    setConfirm(null);
     try {
-      await api.delete(`/schedule/events/series/${recurrenceId}`);
-      setSeries((prev) => prev.filter((s) => s.recurrenceId !== recurrenceId));
+      if (s._isTask) await api.delete(`/tasks/series/${s.recurrenceId}`);
+      else           await api.delete(`/schedule/events/series/${s.recurrenceId}`);
+      setSeries((prev) => prev.filter((x) => x.recurrenceId !== s.recurrenceId));
       onChanged();
     } catch { /* silent */ } finally { setDeleting(null); }
   };
 
-  const TYPE_LABEL = { geral: 'Geral', reuniao: 'Reunião', comercial: 'Comercial', producao: 'Produção', pessoal: 'Pessoal' };
+  const TYPE_LABEL = { geral: 'Geral', reuniao: 'Reunião', comercial: 'Comercial', producao: 'Produção', pessoal: 'Pessoal', task: 'Tarefa' };
   const REC_LABEL  = { Diariamente: 'Diário', Semanalmente: 'Semanal', Mensalmente: 'Mensal' };
 
   return (
@@ -548,7 +564,7 @@ function RecurrenceManagerModal({ onClose, onChanged }) {
               <RotateCw size={16} className="text-erplus-accent" />
               Séries Recorrentes
             </h3>
-            <p className="text-xs text-gray-400 mt-0.5">Gerencie e exclua séries inteiras de uma vez</p>
+            <p className="text-xs text-gray-400 mt-0.5">Eventos, anotações e tarefas recorrentes</p>
           </div>
           <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
             <X size={18} />
@@ -567,36 +583,64 @@ function RecurrenceManagerModal({ onClose, onChanged }) {
           ) : (
             <div className="space-y-2">
               {series.map((s) => (
-                <div key={s.recurrenceId}
-                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50/60 transition-colors">
-                  {/* Color dot */}
-                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color || '#10B981' }} />
+                <div key={s.recurrenceId} className="rounded-xl border border-gray-100 overflow-hidden">
+                  {/* Row */}
+                  <div className="flex items-center gap-3 p-3 hover:bg-gray-50/60 transition-colors">
+                    {/* Color dot */}
+                    <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color || '#10B981' }} />
 
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold text-gray-800 truncate">{s.title}</div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
-                        {TYPE_LABEL[s.type] || s.type}
-                      </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium flex items-center gap-0.5">
-                        <RotateCw size={8} /> {REC_LABEL[s.recurrence] || s.recurrence}
-                      </span>
-                      <span className="text-xs text-gray-400">
-                        {s.count} ocorrência{s.count !== 1 ? 's' : ''} · {s.firstDate.split('-').reverse().join('/')} → {s.lastDate.split('-').reverse().join('/')}
-                      </span>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-semibold text-gray-800 truncate">{s.title}</div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${s._isTask ? 'bg-blue-50 text-blue-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {TYPE_LABEL[s.type] || s.type}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-50 text-purple-600 font-medium flex items-center gap-0.5">
+                          <RotateCw size={8} /> {REC_LABEL[s.recurrence] || s.recurrence}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {s.count} ocorrência{s.count !== 1 ? 's' : ''} · {s.firstDate.split('-').reverse().join('/')} → {s.lastDate.split('-').reverse().join('/')}
+                        </span>
+                      </div>
                     </div>
+
+                    {/* Action button */}
+                    {confirm === s.recurrenceId ? null : (
+                      <button
+                        onClick={() => setConfirm(s.recurrenceId)}
+                        disabled={deleting === s.recurrenceId}
+                        className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition disabled:opacity-40 flex items-center gap-1"
+                      >
+                        <Trash2 size={12} />
+                        {deleting === s.recurrenceId ? 'Excluindo...' : 'Excluir série'}
+                      </button>
+                    )}
                   </div>
 
-                  {/* Delete button */}
-                  <button
-                    onClick={() => handleDelete(s.recurrenceId)}
-                    disabled={deleting === s.recurrenceId}
-                    className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition disabled:opacity-40 flex items-center gap-1"
-                  >
-                    <Trash2 size={12} />
-                    {deleting === s.recurrenceId ? 'Excluindo...' : 'Excluir série'}
-                  </button>
+                  {/* Inline confirm strip */}
+                  {confirm === s.recurrenceId && (
+                    <div className="flex items-center justify-between px-3 py-2 bg-red-50 border-t border-red-100">
+                      <span className="text-xs text-red-700 font-medium">
+                        Excluir todas as {s.count} ocorrências? Não pode ser desfeito.
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setConfirm(null)}
+                          className="px-3 py-1 text-xs font-semibold text-gray-600 hover:text-gray-800 transition"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          onClick={() => handleDelete(s)}
+                          disabled={deleting === s.recurrenceId}
+                          className="px-3 py-1 text-xs font-semibold text-white bg-erplus-accent rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+                        >
+                          {deleting === s.recurrenceId ? 'Excluindo...' : 'Confirmar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -856,7 +900,8 @@ export default function SchedulePage() {
   };
 
   const execDeleteSeries = async (ev) => {
-    await api.delete(`/schedule/events/series/${ev.recurrenceId}`);
+    if (ev._isTask) await api.delete(`/tasks/series/${ev.recurrenceId}`);
+    else            await api.delete(`/schedule/events/series/${ev.recurrenceId}`);
     setDeleteTarget(null);
     fetchEvents();
   };
