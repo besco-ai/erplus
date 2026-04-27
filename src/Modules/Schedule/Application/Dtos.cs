@@ -31,6 +31,16 @@ public record CreateEventRequest(
     string? Visibility,
     string? Recurrence);
 
+public record RecurrenceSeriesDto(
+    string RecurrenceId,
+    string Title,
+    string Type,
+    string? Color,
+    string Recurrence,
+    int Count,
+    string FirstDate,
+    string LastDate);
+
 public record UpdateEventRequest(
     string? Title,
     DateTime? Date,

@@ -127,6 +127,35 @@ public class EventService
         return Result<bool>.Success(true);
     }
 
+    /// <summary>Lista todas as séries recorrentes ativas (agrupadas por RecurrenceId).</summary>
+    public async Task<Result<List<RecurrenceSeriesDto>>> GetSeriesAsync()
+    {
+        var groups = await _db.Events
+            .Where(e => e.RecurrenceId != null)
+            .GroupBy(e => e.RecurrenceId!)
+            .Select(g => new
+            {
+                RecurrenceId = g.Key,
+                Title      = g.First().Title,
+                Type       = g.First().Type,
+                Color      = g.First().Color,
+                Recurrence = g.First().Recurrence,
+                Count      = g.Count(),
+                FirstDate  = g.Min(e => e.Date),
+                LastDate   = g.Max(e => e.Date),
+            })
+            .OrderBy(g => g.FirstDate)
+            .ToListAsync();
+
+        var result = groups.Select(g => new RecurrenceSeriesDto(
+            g.RecurrenceId, g.Title, g.Type, g.Color, g.Recurrence,
+            g.Count,
+            g.FirstDate.ToString("yyyy-MM-dd"),
+            g.LastDate.ToString("yyyy-MM-dd"))).ToList();
+
+        return Result<List<RecurrenceSeriesDto>>.Success(result);
+    }
+
     /// <summary>Exclui todos os eventos de uma série recorrente.</summary>
     public async Task<Result<bool>> DeleteSeriesAsync(string recurrenceId)
     {

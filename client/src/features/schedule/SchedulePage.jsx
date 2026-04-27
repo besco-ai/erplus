@@ -509,6 +509,111 @@ function TaskModal({ onClose, onSaved, users, deals, projects, selectedDate }) {
   );
 }
 
+// ─── Recurrence Manager Modal ────────────────────────────────────────────────
+function RecurrenceManagerModal({ onClose, onChanged }) {
+  const [series, setSeries]   = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(null); // recurrenceId being deleted
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data } = await api.get('/schedule/events/series');
+      setSeries(data || []);
+    } catch { /* silent */ } finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleDelete = async (recurrenceId) => {
+    setDeleting(recurrenceId);
+    try {
+      await api.delete(`/schedule/events/series/${recurrenceId}`);
+      setSeries((prev) => prev.filter((s) => s.recurrenceId !== recurrenceId));
+      onChanged();
+    } catch { /* silent */ } finally { setDeleting(null); }
+  };
+
+  const TYPE_LABEL = { geral: 'Geral', reuniao: 'Reunião', comercial: 'Comercial', producao: 'Produção', pessoal: 'Pessoal' };
+  const REC_LABEL  = { Diariamente: 'Diário', Semanalmente: 'Semanal', Mensalmente: 'Mensal' };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <RotateCw size={16} className="text-erplus-accent" />
+              Séries Recorrentes
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">Gerencie e exclua séries inteiras de uma vez</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600 rounded-lg">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="overflow-y-auto flex-1 px-5 py-3">
+          {loading ? (
+            <div className="text-center py-10 text-gray-400 text-sm">Carregando...</div>
+          ) : series.length === 0 ? (
+            <div className="text-center py-10 text-gray-400 text-sm">
+              <RotateCw size={28} className="mx-auto mb-2 opacity-30" />
+              Nenhuma série recorrente ativa
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {series.map((s) => (
+                <div key={s.recurrenceId}
+                  className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:bg-gray-50/60 transition-colors">
+                  {/* Color dot */}
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: s.color || '#10B981' }} />
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-semibold text-gray-800 truncate">{s.title}</div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-600 font-medium">
+                        {TYPE_LABEL[s.type] || s.type}
+                      </span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-600 font-medium flex items-center gap-0.5">
+                        <RotateCw size={8} /> {REC_LABEL[s.recurrence] || s.recurrence}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {s.count} ocorrência{s.count !== 1 ? 's' : ''} · {s.firstDate.split('-').reverse().join('/')} → {s.lastDate.split('-').reverse().join('/')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Delete button */}
+                  <button
+                    onClick={() => handleDelete(s.recurrenceId)}
+                    disabled={deleting === s.recurrenceId}
+                    className="flex-shrink-0 px-3 py-1.5 text-xs font-semibold text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition disabled:opacity-40 flex items-center gap-1"
+                  >
+                    <Trash2 size={12} />
+                    {deleting === s.recurrenceId ? 'Excluindo...' : 'Excluir série'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800 transition">
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Delete Confirm Modal ────────────────────────────────────────────────────
 function DeleteConfirmModal({ entry, onClose, onDeleteOne, onDeleteSeries }) {
   const isTask   = entry._isTask;
@@ -667,7 +772,8 @@ export default function SchedulePage() {
   const [users, setUsers]       = useState([]);
   const [deals, setDeals]       = useState([]);
   const [projects, setProjects] = useState([]);
-  const [deleteTarget, setDeleteTarget] = useState(null); // entry to confirm-delete
+  const [deleteTarget, setDeleteTarget]   = useState(null);
+  const [showRecManager, setShowRecManager] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -789,6 +895,10 @@ export default function SchedulePage() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-extrabold text-erplus-text">Agenda</h1>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowRecManager(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-white border border-erplus-border text-erplus-text rounded-lg text-sm font-semibold hover:bg-gray-50 transition">
+            <RotateCw size={15} className="text-blue-500" /> Recorrências
+          </button>
           <button onClick={() => setModal('newAnnotation')}
             className="flex items-center gap-2 px-3 py-2 bg-white border border-erplus-border text-erplus-text rounded-lg text-sm font-semibold hover:bg-gray-50 transition">
             <StickyNote size={15} className="text-amber-500" /> Nova Anotação
@@ -975,6 +1085,13 @@ export default function SchedulePage() {
           onClose={() => setDeleteTarget(null)}
           onDeleteOne={() => execDeleteOne(deleteTarget)}
           onDeleteSeries={() => execDeleteSeries(deleteTarget)}
+        />
+      )}
+
+      {showRecManager && (
+        <RecurrenceManagerModal
+          onClose={() => setShowRecManager(false)}
+          onChanged={fetchEvents}
         />
       )}
     </div>

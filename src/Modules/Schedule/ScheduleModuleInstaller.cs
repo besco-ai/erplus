@@ -50,6 +50,10 @@ public class ScheduleModuleInstaller : IModuleInstaller
             return r.IsSuccess ? Results.NoContent() : Results.NotFound();
         });
 
+        // Lista todas as séries recorrentes ativas
+        group.MapGet("/events/series", async (EventService svc) =>
+            Results.Ok((await svc.GetSeriesAsync()).Data));
+
         // Exclui toda a série recorrente
         group.MapDelete("/events/series/{recurrenceId}", async (string recurrenceId, EventService svc) =>
         {
