@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Save, Edit, Trash2, MapPin, Ruler, Building, Calendar } from 'lucide-react';
+import { Plus, X, Save, Edit, Trash2, MapPin, Ruler, Building, Kanban, LayoutGrid } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate } from '../../utils/date';
 
@@ -185,6 +185,7 @@ export default function ProjectsPage() {
   const [activePipeline, setActivePipeline] = useState(null);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState(null);
+  const [view, setView] = useState('kanban'); // 'kanban' | 'grid'
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -217,9 +218,28 @@ export default function ProjectsPage() {
           <h1 className="text-xl font-extrabold text-erplus-text">Empreendimentos</h1>
           <p className="text-sm text-erplus-text-muted mt-1">{projects.length} empreendimento(s)</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
-          <Plus size={16} /> Novo Empreendimento
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setView('kanban')}
+              className={`p-1.5 rounded-md transition ${view === 'kanban' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Visualização Kanban"
+            >
+              <Kanban size={15} />
+            </button>
+            <button
+              onClick={() => setView('grid')}
+              className={`p-1.5 rounded-md transition ${view === 'grid' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Visualização em grade"
+            >
+              <LayoutGrid size={15} />
+            </button>
+          </div>
+          <button className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition">
+            <Plus size={16} /> Novo Empreendimento
+          </button>
+        </div>
       </div>
 
       {/* Pipeline tabs */}
@@ -236,23 +256,59 @@ export default function ProjectsPage() {
         </div>
       )}
 
-      {/* Kanban */}
       {loading ? (
         <div className="text-center py-12 text-gray-400">Carregando...</div>
-      ) : currentPipeline ? (
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {currentPipeline.stages.map((stage) => (
-            <KanbanColumn
-              key={stage.id}
-              stage={stage}
-              projects={projects.filter((p) => p.pipelineId === activePipeline)}
-              onProjectClick={(p) => setSelectedProject(p)}
-              onDrop={handleDrop}
-            />
-          ))}
-        </div>
+      ) : view === 'kanban' ? (
+        /* ── Kanban View ── */
+        currentPipeline ? (
+          <div className="flex gap-3 overflow-x-auto pb-4">
+            {currentPipeline.stages.map((stage) => (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                projects={projects.filter((p) => p.pipelineId === activePipeline)}
+                onProjectClick={(p) => setSelectedProject(p)}
+                onDrop={handleDrop}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-400">Nenhum pipeline encontrado</div>
+        )
       ) : (
-        <div className="text-center py-12 text-gray-400">Nenhum pipeline encontrado</div>
+        /* ── Grid View ── */
+        projects.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">Nenhum empreendimento encontrado</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {projects
+              .filter((p) => !activePipeline || p.pipelineId === activePipeline)
+              .map((p) => (
+                <div
+                  key={p.id}
+                  onClick={() => setSelectedProject(p)}
+                  className="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="text-sm font-semibold text-gray-900 leading-snug line-clamp-2 flex-1">{p.title}</div>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold flex-shrink-0">{p.stageName}</span>
+                  </div>
+                  {p.inscricaoImob && (
+                    <div className="text-xs text-gray-400 mb-2">{p.inscricaoImob}</div>
+                  )}
+                  <div className="text-base font-bold text-erplus-accent mb-2">
+                    {'R$ ' + Number(p.value || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </div>
+                  {p.endEmpreendimento && (
+                    <div className="flex items-center gap-1 text-xs text-gray-400">
+                      <MapPin size={11} />
+                      <span className="truncate">{p.endEmpreendimento}</span>
+                    </div>
+                  )}
+                </div>
+              ))}
+          </div>
+        )
       )}
 
       {selectedProject && (

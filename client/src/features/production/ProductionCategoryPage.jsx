@@ -1,11 +1,38 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, X, Save, Trash2, Edit, Clock } from 'lucide-react';
+import { Plus, X, Save, Trash2, Edit, Clock, LayoutList, Kanban } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate } from '../../utils/date';
 import DatePicker from '../../components/ui/DatePicker';
 import Select from '../../components/ui/Select';
 
 const STATUSES = ['Não iniciado', 'Em andamento', 'Em revisão', 'Finalizado'];
+
+const STATUS_STYLES = {
+  'Não iniciado': {
+    header: 'bg-gray-100 border-gray-200',
+    badge: 'bg-gray-100 text-gray-600',
+    dot: 'bg-gray-400',
+    drag: 'bg-gray-50/70',
+  },
+  'Em andamento': {
+    header: 'bg-blue-50 border-blue-100',
+    badge: 'bg-blue-100 text-blue-600',
+    dot: 'bg-blue-500',
+    drag: 'bg-blue-50/70',
+  },
+  'Em revisão': {
+    header: 'bg-amber-50 border-amber-100',
+    badge: 'bg-amber-100 text-amber-600',
+    dot: 'bg-amber-400',
+    drag: 'bg-amber-50/70',
+  },
+  'Finalizado': {
+    header: 'bg-green-50 border-green-100',
+    badge: 'bg-green-100 text-green-600',
+    dot: 'bg-green-500',
+    drag: 'bg-green-50/70',
+  },
+};
 
 function ItemModal({ item, category, onClose, onSaved }) {
   const isEdit = !!item;
@@ -103,6 +130,88 @@ function ItemModal({ item, category, onClose, onSaved }) {
   );
 }
 
+function KanbanCard({ item, onEdit, onDelete }) {
+  const st = STATUS_STYLES[item.status] || STATUS_STYLES['Não iniciado'];
+  return (
+    <div
+      draggable
+      onDragStart={(e) => e.dataTransfer.setData('itemId', item.id.toString())}
+      className="bg-white rounded-xl border border-gray-100 p-3 mb-2 cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all group"
+    >
+      <div className="flex items-start justify-between gap-1 mb-1.5">
+        <div className="text-sm font-semibold text-gray-900 leading-snug flex-1">{item.title}</div>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <button
+            onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+            className="p-1 text-gray-300 hover:text-blue-500 rounded"
+          >
+            <Edit size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+            className="p-1 text-gray-300 hover:text-red-500 rounded"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
+      </div>
+      {item.description && (
+        <div className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</div>
+      )}
+      {item.prodItemTypeName && (
+        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">
+          {item.prodItemTypeName}
+        </span>
+      )}
+      {item.due && (
+        <div className={`flex items-center gap-1 text-xs mt-1.5 ${item.isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
+          <Clock size={10} />
+          {fmtDate(item.due)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function KanbanColumn({ status, items, onStatusDrop, onEdit, onDelete }) {
+  const [dragOver, setDragOver] = useState(false);
+  const st = STATUS_STYLES[status] || STATUS_STYLES['Não iniciado'];
+
+  return (
+    <div
+      className={`flex-shrink-0 w-64 flex flex-col rounded-xl border transition ${dragOver ? st.drag + ' border-opacity-60' : 'bg-gray-50/60 border-gray-100'}`}
+      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const id = e.dataTransfer.getData('itemId');
+        if (id) onStatusDrop(Number(id), status);
+      }}
+    >
+      <div className={`px-3 py-2.5 rounded-t-xl border-b ${st.header}`}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full ${st.dot}`} />
+            <span className="text-xs font-bold text-gray-700">{status}</span>
+          </div>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${st.badge}`}>
+            {items.length}
+          </span>
+        </div>
+      </div>
+      <div className="flex-1 p-2 overflow-y-auto max-h-[calc(100vh-280px)]">
+        {items.map((item) => (
+          <KanbanCard key={item.id} item={item} onEdit={onEdit} onDelete={onDelete} />
+        ))}
+        {items.length === 0 && (
+          <div className="text-center py-8 text-xs text-gray-300">Arraste um card aqui</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Página genérica para uma categoria de produção.
  * Reutilizada pelas 8 rotas /producao/{categoria}.
@@ -111,6 +220,7 @@ export default function ProductionCategoryPage({ category, label, color }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
+  const [view, setView] = useState('list'); // 'list' | 'kanban'
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -146,17 +256,51 @@ export default function ProductionCategoryPage({ category, label, color }) {
           {color && <div className="w-3 h-3 rounded-full" style={{ background: color }} />}
           <h1 className="text-xl font-extrabold text-erplus-text">{label}</h1>
         </div>
-        <button
-          onClick={() => setModal('new')}
-          className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700"
-        >
-          <Plus size={16} /> Novo Item
-        </button>
+        <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex items-center bg-gray-100 rounded-lg p-1">
+            <button
+              onClick={() => setView('list')}
+              className={`p-1.5 rounded-md transition ${view === 'list' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Visualização em lista"
+            >
+              <LayoutList size={15} />
+            </button>
+            <button
+              onClick={() => setView('kanban')}
+              className={`p-1.5 rounded-md transition ${view === 'kanban' ? 'bg-white shadow-sm text-erplus-accent' : 'text-gray-400 hover:text-gray-600'}`}
+              title="Visualização Kanban"
+            >
+              <Kanban size={15} />
+            </button>
+          </div>
+          <button
+            onClick={() => setModal('new')}
+            className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700"
+          >
+            <Plus size={16} /> Novo Item
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="text-center py-12 text-gray-400">Carregando...</div>
+      ) : view === 'kanban' ? (
+        /* ── Kanban View ── */
+        <div className="flex gap-3 overflow-x-auto pb-4">
+          {STATUSES.map((status) => (
+            <KanbanColumn
+              key={status}
+              status={status}
+              items={items.filter((i) => i.status === status)}
+              onStatusDrop={handleStatusChange}
+              onEdit={(item) => setModal(item)}
+              onDelete={handleDelete}
+            />
+          ))}
+        </div>
       ) : (
+        /* ── List View ── */
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full">
             <thead>
