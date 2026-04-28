@@ -20,7 +20,8 @@ public class QuoteService
 
         var quotes = await query.OrderByDescending(q => q.Data)
             .Select(q => new QuoteDto(q.Id, q.Numero, q.DealId, q.Titulo, q.ClientId,
-                q.ItemsJson, q.Valor, q.Status, q.Data, q.Validade, q.Conditions, q.StatusChangedAt))
+                q.ItemsJson, q.Valor, q.Status, q.Data, q.Validade, q.Conditions, q.StatusChangedAt,
+                q.FormaPagamento, q.NumeroParcelas, q.DataPrimeiroPagamento, q.Observacoes))
             .ToListAsync();
 
         return Result<List<QuoteDto>>.Success(quotes);
@@ -28,8 +29,18 @@ public class QuoteService
 
     public async Task<Result<QuoteDto>> CreateAsync(CreateQuoteRequest r)
     {
-        var deal = await _db.Deals.FindAsync(r.DealId);
-        if (deal is null) return Result<QuoteDto>.Failure("Negócio não encontrado");
+        if (string.IsNullOrWhiteSpace(r.Titulo))
+            return Result<QuoteDto>.Failure("Título é obrigatório");
+
+        Deal? deal = null;
+        if (r.DealId.HasValue)
+        {
+            deal = await _db.Deals.FindAsync(r.DealId.Value);
+            if (deal is null) return Result<QuoteDto>.Failure("Negócio não encontrado");
+        }
+
+        var clientId = r.ClientId > 0 ? r.ClientId : (deal?.ClientId ?? 0);
+        if (clientId == 0) return Result<QuoteDto>.Failure("Cliente é obrigatório");
 
         var maxNum = await _db.Quotes.MaxAsync(q => (int?)q.Id) ?? 0;
         var numero = $"ORC-{(maxNum + 1):D3}";
@@ -39,30 +50,41 @@ public class QuoteService
             Numero = numero,
             DealId = r.DealId,
             Titulo = r.Titulo.Trim(),
-            ClientId = r.ClientId > 0 ? r.ClientId : deal.ClientId,
+            ClientId = clientId,
             ItemsJson = r.ItemsJson,
             Valor = r.Valor,
             Status = "Rascunho",
             Data = DateTime.UtcNow,
             Validade = r.Validade,
-            Conditions = r.Conditions
+            Conditions = r.Conditions,
+            FormaPagamento = r.FormaPagamento ?? "Boleto",
+            NumeroParcelas = r.NumeroParcelas > 0 ? r.NumeroParcelas : 1,
+            DataPrimeiroPagamento = r.DataPrimeiroPagamento,
+            Observacoes = r.Observacoes,
         };
 
         _db.Quotes.Add(quote);
-        _db.DealTimeline.Add(new DealTimelineEntry
+
+        if (deal is not null)
         {
-            DealId = r.DealId,
-            Date = DateTime.UtcNow,
-            Type = "quote",
-            Text = $"Orçamento {numero} criado",
-            CreatedAt = DateTime.UtcNow
-        });
+            _db.DealTimeline.Add(new DealTimelineEntry
+            {
+                DealId = deal.Id,
+                Date = DateTime.UtcNow,
+                Type = "quote",
+                Text = $"Orçamento {numero} criado",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
+
         await _db.SaveChangesAsync();
 
         return Result<QuoteDto>.Created(new QuoteDto(
             quote.Id, quote.Numero, quote.DealId, quote.Titulo, quote.ClientId,
             quote.ItemsJson, quote.Valor, quote.Status, quote.Data,
-            quote.Validade, quote.Conditions, null));
+            quote.Validade, quote.Conditions, null,
+            quote.FormaPagamento, quote.NumeroParcelas,
+            quote.DataPrimeiroPagamento, quote.Observacoes));
     }
 
     public async Task<Result<QuoteDto>> UpdateStatusAsync(int id, UpdateQuoteStatusRequest r)
@@ -104,7 +126,7 @@ public class QuoteService
             {
                 Numero = $"CTR-{(maxCtr + 1):D3}",
                 QuoteId = quote.Id,
-                DealId = quote.DealId,
+                DealId = quote.DealId ?? 0,
                 ClientId = quote.ClientId,
                 Titulo = quote.Titulo,
                 Valor = quote.Valor,
@@ -117,12 +139,15 @@ public class QuoteService
                 BusinessTypeId = deal?.BusinessTypeId
             });
 
-            _db.DealTimeline.Add(new DealTimelineEntry
+            if (quote.DealId.HasValue)
             {
-                DealId = quote.DealId, Date = DateTime.UtcNow, Type = "contract",
-                Text = $"Contrato criado a partir de {quote.Numero} aprovado",
-                CreatedAt = DateTime.UtcNow
-            });
+                _db.DealTimeline.Add(new DealTimelineEntry
+                {
+                    DealId = quote.DealId.Value, Date = DateTime.UtcNow, Type = "contract",
+                    Text = $"Contrato criado a partir de {quote.Numero} aprovado",
+                    CreatedAt = DateTime.UtcNow
+                });
+            }
         }
 
         // If reverting from approved, remove associated contract
@@ -132,19 +157,24 @@ public class QuoteService
             if (contract is not null) _db.Contracts.Remove(contract);
         }
 
-        _db.DealTimeline.Add(new DealTimelineEntry
+        if (quote.DealId.HasValue)
         {
-            DealId = quote.DealId, Date = DateTime.UtcNow, Type = "quote",
-            Text = $"{quote.Numero} passou de \"{oldStatus}\" para \"{r.Status}\"",
-            CreatedAt = DateTime.UtcNow
-        });
+            _db.DealTimeline.Add(new DealTimelineEntry
+            {
+                DealId = quote.DealId.Value, Date = DateTime.UtcNow, Type = "quote",
+                Text = $"{quote.Numero} passou de \"{oldStatus}\" para \"{r.Status}\"",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
         await _db.SaveChangesAsync();
 
         return Result<QuoteDto>.Success(new QuoteDto(
             quote.Id, quote.Numero, quote.DealId, quote.Titulo, quote.ClientId,
             quote.ItemsJson, quote.Valor, quote.Status, quote.Data,
-            quote.Validade, quote.Conditions, quote.StatusChangedAt));
+            quote.Validade, quote.Conditions, quote.StatusChangedAt,
+            quote.FormaPagamento, quote.NumeroParcelas,
+            quote.DataPrimeiroPagamento, quote.Observacoes));
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)

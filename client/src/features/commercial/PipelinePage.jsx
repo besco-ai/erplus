@@ -315,7 +315,7 @@ function BriefingTab({ dealId, briefings, templates, onChanged }) {
   );
 }
 
-function DealModal({ deal, onClose, onSaved }) {
+export function DealModal({ deal, onClose, onSaved }) {
   const [tab, setTab] = useState('dados');
   const [form, setForm] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -524,7 +524,7 @@ function DealModal({ deal, onClose, onSaved }) {
 
 // ── Modais de gestão de pipeline ──
 
-function PipelineFormModal({ pipeline, onClose, onSaved }) {
+export function PipelineFormModal({ pipeline, onClose, onSaved }) {
   const isEdit = !!pipeline;
   const [name, setName] = useState(pipeline?.name || '');
   const [stages, setStages] = useState(() => (

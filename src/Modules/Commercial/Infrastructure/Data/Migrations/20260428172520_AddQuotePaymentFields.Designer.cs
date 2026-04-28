@@ -3,6 +3,7 @@ using System;
 using ERPlus.Modules.Commercial.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ERPlus.Modules.Commercial.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(CommercialDbContext))]
-    partial class CommercialDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260428172520_AddQuotePaymentFields")]
+    partial class AddQuotePaymentFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -106,16 +109,10 @@ namespace ERPlus.Modules.Commercial.Infrastructure.Data.Migrations
                     b.Property<DateTime>("DataInicio")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("DataPrimeiroPagamento")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("DealId")
+                    b.Property<int>("DealId")
                         .HasColumnType("integer");
 
                     b.Property<string>("EndEmpreendimento")
-                        .HasColumnType("text");
-
-                    b.Property<string>("FormaPagamento")
                         .HasColumnType("text");
 
                     b.Property<string>("InscricaoImob")
@@ -128,9 +125,6 @@ namespace ERPlus.Modules.Commercial.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<int>("NumeroParcelas")
-                        .HasColumnType("integer");
 
                     b.Property<int?>("QuoteId")
                         .HasColumnType("integer");
@@ -574,7 +568,9 @@ namespace ERPlus.Modules.Commercial.Infrastructure.Data.Migrations
                 {
                     b.HasOne("ERPlus.Modules.Commercial.Domain.Entities.Deal", "Deal")
                         .WithMany("Contracts")
-                        .HasForeignKey("DealId");
+                        .HasForeignKey("DealId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Deal");
                 });

@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Plus, X, Save, ChevronLeft, ChevronRight, Clock, Trash2,
   Edit, Calendar, CheckSquare, LayoutList, CalendarDays, StickyNote,
-  RotateCw, AlertTriangle,
+  RotateCw, AlertTriangle, ChevronDown, User,
 } from 'lucide-react';
 import api from '../../services/api';
 import useAuthStore from '../../hooks/useAuthStore';
@@ -46,7 +46,7 @@ function EventModal({ event, onClose, onSaved, users, deals, projects }) {
   const [form, setForm] = useState({
     title:           event?.title || '',
     date:            event?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-    time:            event?.time || '09:00',
+    time:            event?._newWithTime || event?.time || '09:00',
     durationMinutes: event?.durationMinutes || 60,
     type:            event?.type || 'geral',
     recurrence:      event?.recurrence || 'Sem recorrência',
@@ -765,6 +765,245 @@ function EntryRow({ ev, onEdit, onDelete }) {
   );
 }
 
+// ─── TimeGrid (shared by DayView and WeekView) ───────────────────────────────
+const HOUR_H    = 56;
+const GRID_START = 6;   // 06:00
+const GRID_END   = 23;  // 23:00
+const GRID_HOURS = Array.from({ length: GRID_END - GRID_START }, (_, i) => GRID_START + i);
+const GRID_H     = GRID_HOURS.length * HOUR_H;
+
+const DAY_SHORT_UPPER = ['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+
+function toMin(time) {
+  if (!time) return 0;
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function minToY(min) {
+  return (min - GRID_START * 60) * (HOUR_H / 60);
+}
+
+function buildCols(events) {
+  const sorted = [...events].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const cols = [];
+  sorted.forEach(ev => {
+    const start = toMin(ev.time);
+    const end   = start + (ev.durationMinutes || 60);
+    let placed  = false;
+    for (const col of cols) {
+      const last = col[col.length - 1];
+      if (start >= toMin(last.time) + (last.durationMinutes || 60)) { col.push(ev); placed = true; break; }
+    }
+    if (!placed) cols.push([ev]);
+  });
+  const idx = {};
+  cols.forEach((col, ci) => col.forEach(ev => { idx[ev.id] = { ci, total: cols.length }; }));
+  return { sorted, idx };
+}
+
+function TimeGrid({ days, entries, onEdit, onDelete, onNewEvent }) {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const hasToday = days.some(d => d.dateStr === todayStr);
+
+  const [nowMin, setNowMin] = useState(() => { const n = new Date(); return n.getHours() * 60 + n.getMinutes(); });
+  useEffect(() => {
+    if (!hasToday) return;
+    const id = setInterval(() => { const n = new Date(); setNowMin(n.getHours() * 60 + n.getMinutes()); }, 60000);
+    return () => clearInterval(id);
+  }, [hasToday]);
+
+  // Split per day
+  const dayData = days.map(({ dateStr }) => {
+    const all   = entries.filter(e => e.date?.slice(0, 10) === dateStr);
+    const tasks = all.filter(e => e._isTask);
+    const annots = all.filter(e => isAnnotation(e));
+    const events = all.filter(e => !e._isTask && !isAnnotation(e) && e.time);
+    return { tasks, annots, events };
+  });
+
+  const hasTasks  = dayData.some(d => d.tasks.length > 0);
+  const hasAnnots = dayData.some(d => d.annots.length > 0);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+      {/* ── Column header ── */}
+      <div className="flex bg-[#f0f0f0] border-b border-gray-200 sticky top-0 z-30">
+        <div className="w-[60px] flex-shrink-0 px-2 py-1.5 text-[10px] font-bold text-gray-500">HR</div>
+        {days.map(({ dateStr, label }) => (
+          <div key={dateStr}
+            className={`flex-1 text-center text-[11px] font-bold py-1.5 border-l border-gray-200 tracking-wide ${dateStr === todayStr ? 'text-erplus-accent' : 'text-gray-600'}`}>
+            {label}
+          </div>
+        ))}
+      </div>
+
+      {/* ── TAREFAS DO DIA ── */}
+      <div className="flex bg-[#f7f7f7] border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase">
+        <div className="w-[60px] flex-shrink-0" />
+        <div className="flex-1 px-3 py-1 border-l border-gray-200 tracking-widest">Tarefas do Dia</div>
+      </div>
+      <div className="flex border-b border-gray-200" style={{ minHeight: 80 }}>
+        <div className="w-[60px] flex-shrink-0 border-r border-gray-100" />
+        {days.map(({ dateStr }, di) => (
+          <div key={dateStr} className={`flex-1 p-1.5 ${di > 0 ? 'border-l border-gray-100' : ''}`}>
+            {dayData[di].tasks.map(t => (
+              <div key={t.id}
+                className={`flex items-center gap-1 px-2 py-[3px] mb-1 rounded cursor-pointer text-[11px] font-medium border-l-2 transition hover:brightness-95 ${t.status === 'Finalizado' ? 'bg-green-50 border-green-400 text-green-700' : 'bg-blue-50 border-blue-400 text-blue-700'}`}
+                onClick={() => onEdit(t)}>
+                <CheckSquare size={10} className="flex-shrink-0" />
+                <span className="truncate">{t.title}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+      {/* ── AGENDAS label ── */}
+      <div className="flex bg-[#f7f7f7] border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase">
+        <div className="w-[60px] flex-shrink-0" />
+        <div className="flex-1 px-3 py-1 border-l border-gray-200 tracking-widest">Agendas</div>
+      </div>
+
+      {/* ── Timeline ── */}
+      <div className="flex overflow-y-auto" style={{ maxHeight: 'calc(100vh - 400px)', minHeight: 300 }}>
+        {/* Hours gutter */}
+        <div className="w-[60px] flex-shrink-0 relative select-none flex-shrink-0" style={{ height: GRID_H }}>
+          {GRID_HOURS.map(h => (
+            <div key={h} style={{ top: (h - GRID_START) * HOUR_H }}
+              className="absolute w-full border-t border-gray-100 flex items-start justify-end pr-2 pt-0.5">
+              <span className="text-[10px] text-gray-400 font-medium leading-none">
+                {String(h).padStart(2,'0')}:00
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* Day columns */}
+        {days.map(({ dateStr }, di) => {
+          const isToday = dateStr === todayStr;
+          const { sorted, idx } = buildCols(dayData[di].events);
+          return (
+            <div key={dateStr}
+              className={`flex-1 relative border-l border-gray-100 ${isToday ? 'bg-blue-50/5' : ''}`}
+              style={{ height: GRID_H }}>
+              {/* Grid lines */}
+              {GRID_HOURS.map(h => (
+                <div key={h}>
+                  <div style={{ top: (h - GRID_START) * HOUR_H }} className="absolute left-0 right-0 border-t border-gray-100" />
+                  {[1,2,3].map(q => (
+                    <div key={q} style={{ top: (h - GRID_START) * HOUR_H + q * HOUR_H / 4 }}
+                      className="absolute left-0 right-0 border-t border-gray-50" />
+                  ))}
+                </div>
+              ))}
+
+              {/* Current time */}
+              {isToday && nowMin >= GRID_START * 60 && nowMin <= GRID_END * 60 && (
+                <div style={{ top: minToY(nowMin) }}
+                  className="absolute left-0 right-0 z-20 flex items-center pointer-events-none">
+                  <div className="w-2 h-2 rounded-full bg-erplus-accent -ml-1 flex-shrink-0" />
+                  <div className="flex-1 border-t-2 border-erplus-accent opacity-90" />
+                </div>
+              )}
+
+              {/* Click to create event */}
+              <div className="absolute inset-0 z-0" onClick={e => {
+                const y   = e.clientY - e.currentTarget.getBoundingClientRect().top;
+                const min = Math.round((y / (HOUR_H / 60)) / 15) * 15 + GRID_START * 60;
+                const h = Math.floor(min / 60), m = min % 60;
+                onNewEvent(dateStr, `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+              }} />
+
+              {/* Events */}
+              {sorted.map(ev => {
+                const startMin = toMin(ev.time);
+                const dur      = ev.durationMinutes || 60;
+                const top      = minToY(startMin);
+                const height   = Math.max(dur * (HOUR_H / 60), 22);
+                const color    = ev.color || '#10B981';
+                const { ci, total } = idx[ev.id];
+                const colW = 100 / total;
+                return (
+                  <div key={ev.id}
+                    style={{ top, height, left: `calc(${ci * colW}% + 1px)`, width: `calc(${colW}% - 2px)`,
+                      background: color + '20', borderLeft: `3px solid ${color}` }}
+                    className="absolute rounded px-1.5 py-0.5 cursor-pointer hover:brightness-95 transition z-10 overflow-hidden group"
+                    onClick={e => { e.stopPropagation(); onEdit(ev); }}>
+                    <div className="text-[10px] font-bold truncate leading-snug" style={{ color }}>
+                      {ev.time} {ev.title}
+                    </div>
+                    {height > 36 && (
+                      <div className="text-[9px] text-gray-500 mt-0.5 flex items-center gap-1">
+                        <Clock size={8} />{dur}min
+                      </div>
+                    )}
+                    <button onClick={e => { e.stopPropagation(); onDelete(ev); }}
+                      className="absolute top-0.5 right-0.5 opacity-0 group-hover:opacity-60 hover:!opacity-100">
+                      <X size={10} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── ANOTAÇÕES ── */}
+      <div className="flex bg-[#f7f7f7] border-t border-b border-gray-200 text-[10px] font-bold text-gray-500 uppercase">
+        <div className="w-[60px] flex-shrink-0" />
+        <div className="flex-1 px-3 py-1 border-l border-gray-200 tracking-widest">Anotações</div>
+      </div>
+      <div className="flex" style={{ minHeight: 80 }}>
+        <div className="w-[60px] flex-shrink-0 border-r border-gray-100" />
+        {days.map(({ dateStr }, di) => (
+          <div key={dateStr} className={`flex-1 p-1.5 ${di > 0 ? 'border-l border-gray-100' : ''}`}>
+            {dayData[di].annots.map(a => (
+              <div key={a.id}
+                className="flex items-center gap-1 px-2 py-[3px] mb-1 rounded cursor-pointer text-[11px] font-medium bg-amber-50 border-l-2 border-amber-400 text-amber-700 transition hover:brightness-95"
+                onClick={() => onEdit(a)}>
+                <StickyNote size={10} className="flex-shrink-0" />
+                <span className="truncate">{a.title}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Day View ─────────────────────────────────────────────────────────────────
+function DayView({ date, entries, onEdit, onDelete, onNewEvent }) {
+  const d = date;
+  const label = `${DAY_SHORT_UPPER[d.getDay()]} ${d.getDate()}/${String(d.getMonth()+1).padStart(2,'0')}`;
+  const days = [{ dateStr: d.toISOString().slice(0,10), label }];
+  return (
+    <TimeGrid days={days} entries={entries} onEdit={onEdit} onDelete={onDelete}
+      onNewEvent={(dateStr, time) => onNewEvent(time, dateStr)} />
+  );
+}
+
+// ─── Week View ────────────────────────────────────────────────────────────────
+function WeekView({ date, entries, onEdit, onDelete, onNewEvent }) {
+  const weekStart = new Date(date);
+  weekStart.setDate(date.getDate() - date.getDay());
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return {
+      dateStr: d.toISOString().slice(0,10),
+      label:   `${DAY_SHORT_UPPER[i]} ${d.getDate()}/${String(d.getMonth()+1).padStart(2,'0')}`,
+    };
+  });
+  return (
+    <TimeGrid days={days} entries={entries} onEdit={onEdit} onDelete={onDelete}
+      onNewEvent={(dateStr, time) => onNewEvent(time, dateStr)} />
+  );
+}
+
+
 // ─── Calendar Chip ───────────────────────────────────────────────────────────
 function CalendarChip({ ev, onClick }) {
   const isAnnot = isAnnotation(ev);
@@ -804,15 +1043,88 @@ function CalendarChip({ ev, onClick }) {
   );
 }
 
+// ─── Mini Month Calendar (Ano view) ─────────────────────────────────────────
+const WEEK_HEADERS = ['D','S','T','Q','Q','S','S'];
+
+function MiniMonth({ year, monthIndex, entries, todayStr, onDayClick }) {
+  const name = MONTH_NAMES[monthIndex];
+  const firstDay   = new Date(year, monthIndex, 1).getDay();
+  const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+  const isCurrentMonth = monthIndex === new Date().getMonth() && year === new Date().getFullYear();
+
+  const cells = [];
+  for (let i = 0; i < firstDay; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const dotsFor = (d) => {
+    if (!d) return [];
+    const ds = `${year}-${String(monthIndex + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    return entries.filter(e => e.date?.slice(0,10) === ds);
+  };
+
+  return (
+    <div className={`bg-white rounded-xl shadow-sm p-4 hover:shadow-md transition-shadow ${isCurrentMonth ? 'ring-2 ring-erplus-accent/30' : ''}`}>
+      {/* Month name */}
+      <div className={`text-sm font-bold text-center mb-3 ${isCurrentMonth ? 'text-erplus-accent' : 'text-gray-700'}`}>
+        {name}
+      </div>
+      {/* Day headers */}
+      <div className="grid grid-cols-7 mb-1">
+        {WEEK_HEADERS.map((h, i) => (
+          <div key={i} className={`text-center text-[10px] font-semibold pb-1 ${i === 0 ? 'text-red-400' : 'text-gray-400'}`}>{h}</div>
+        ))}
+      </div>
+      {/* Day cells */}
+      <div className="grid grid-cols-7">
+        {cells.map((d, i) => {
+          if (!d) return <div key={i} className="h-7" />;
+          const ds = `${year}-${String(monthIndex + 1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const isToday   = ds === todayStr;
+          const isSunday  = new Date(year, monthIndex, d).getDay() === 0;
+          const dayEntries = dotsFor(d);
+          return (
+            <div key={i}
+              className="flex flex-col items-center cursor-pointer group py-0.5"
+              onClick={() => onDayClick(year, monthIndex, d)}>
+              <span className={`text-[11px] w-5 h-5 flex items-center justify-center rounded-full font-medium leading-none transition
+                ${isToday
+                  ? 'bg-erplus-accent text-white font-bold'
+                  : isSunday
+                  ? 'text-red-400 group-hover:bg-red-50'
+                  : 'text-gray-700 group-hover:bg-gray-100'}`}>
+                {d}
+              </span>
+              {dayEntries.length > 0 && (
+                <div className="flex gap-[2px] mt-[1px]">
+                  {dayEntries.slice(0, 3).map((ev, ei) => (
+                    <span key={ei} className="w-1 h-1 rounded-full block"
+                      style={{ background: ev._isTask ? '#3B82F6' : isAnnotation(ev) ? '#F59E0B' : (ev.color || '#10B981') }} />
+                  ))}
+                </div>
+              )}
+              {dayEntries.length === 0 && <div className="h-[5px]" />}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Página Principal ────────────────────────────────────────────────────────
 export default function SchedulePage() {
+  const { user: currentUser } = useAuthStore();
   const [events, setEvents] = useState([]);
   const [tasks,  setTasks]  = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null);        // null | 'newEvent' | 'newTask' | {event obj}
-  const [viewMode, setViewMode] = useState('mes'); // 'dia' | 'mes' | 'ano'
+  const [modal, setModal] = useState(null);          // null | 'newEvent' | 'newTask' | {event obj}
+  const [viewMode, setViewMode] = useState('mes');   // 'dia' | 'semana' | 'mes' | 'ano'
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [userFilter, setUserFilter] = useState('');
+  const [filterMode, setFilterMode] = useState('all'); // 'all' | 'mine' | 'user'
+  const [userFilter, setUserFilter] = useState('');    // userId when filterMode==='user'
+  const [showUserPicker, setShowUserPicker] = useState(false);
+  const userPickerRef = useRef(null);
   const [users, setUsers]       = useState([]);
   const [deals, setDeals]       = useState([]);
   const [projects, setProjects] = useState([]);
@@ -848,6 +1160,11 @@ export default function SchedulePage() {
       let from, to;
       if (viewMode === 'dia') {
         from = to = currentDate.toISOString().slice(0, 10);
+      } else if (viewMode === 'semana') {
+        const ws = new Date(currentDate); ws.setDate(currentDate.getDate() - currentDate.getDay());
+        const we = new Date(ws); we.setDate(ws.getDate() + 6);
+        from = ws.toISOString().slice(0, 10);
+        to   = we.toISOString().slice(0, 10);
       } else if (viewMode === 'ano') {
         from = `${year}-01-01`;
         to = `${year}-12-31`;
@@ -878,13 +1195,15 @@ export default function SchedulePage() {
 
   // Navigation
   const prev = () => {
-    if (viewMode === 'dia') setCurrentDate(new Date(year, month, day - 1));
-    else if (viewMode === 'ano') setCurrentDate(new Date(year - 1, month, 1));
+    if (viewMode === 'dia')    setCurrentDate(new Date(year, month, day - 1));
+    else if (viewMode === 'semana') setCurrentDate(new Date(year, month, day - 7));
+    else if (viewMode === 'ano')  setCurrentDate(new Date(year - 1, month, 1));
     else setCurrentDate(new Date(year, month - 1, 1));
   };
   const next = () => {
-    if (viewMode === 'dia') setCurrentDate(new Date(year, month, day + 1));
-    else if (viewMode === 'ano') setCurrentDate(new Date(year + 1, month, 1));
+    if (viewMode === 'dia')    setCurrentDate(new Date(year, month, day + 1));
+    else if (viewMode === 'semana') setCurrentDate(new Date(year, month, day + 7));
+    else if (viewMode === 'ano')  setCurrentDate(new Date(year + 1, month, 1));
     else setCurrentDate(new Date(year, month + 1, 1));
   };
   const goToday = () => setCurrentDate(new Date());
@@ -906,11 +1225,22 @@ export default function SchedulePage() {
     fetchEvents();
   };
 
-  // Merge events + tasks and apply user filter
+  // Close user picker on outside click
+  useEffect(() => {
+    const handler = (e) => { if (userPickerRef.current && !userPickerRef.current.contains(e.target)) setShowUserPicker(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Merge events + tasks and apply filter
   const allEntries = [...events, ...tasks];
-  const filteredEvents = userFilter
-    ? allEntries.filter((e) => String(e.userId) === userFilter || String(e.responsibleId) === userFilter)
-    : allEntries;
+  const filteredEvents = (() => {
+    if (filterMode === 'mine')
+      return allEntries.filter(e => String(e.responsibleId) === String(currentUser?.id) || String(e.userId) === String(currentUser?.id));
+    if (filterMode === 'user' && userFilter)
+      return allEntries.filter(e => String(e.responsibleId) === String(userFilter) || String(e.userId) === String(userFilter));
+    return allEntries;
+  })();
 
   // ── Calendar grid (Mês) ──
   const firstDay = new Date(year, month, 1).getDay();
@@ -928,10 +1258,16 @@ export default function SchedulePage() {
   };
 
   // ── Header label ──
+  const getWeekLabel = () => {
+    const ws = new Date(currentDate); ws.setDate(currentDate.getDate() - currentDate.getDay());
+    const we = new Date(ws); we.setDate(ws.getDate() + 6);
+    const fmt = d => `${d.getDate()} ${MONTH_NAMES[d.getMonth()].slice(0,3)}`;
+    return `${fmt(ws)} — ${fmt(we)}, ${year}`;
+  };
   const headerLabel = viewMode === 'dia'
     ? `${DAY_NAMES[currentDate.getDay()]}, ${day} de ${MONTH_NAMES[month]} de ${year}`
-    : viewMode === 'ano'
-    ? String(year)
+    : viewMode === 'semana' ? getWeekLabel()
+    : viewMode === 'ano'   ? String(year)
     : `${MONTH_NAMES[month]} ${year}`;
 
   return (
@@ -960,19 +1296,56 @@ export default function SchedulePage() {
       </div>
 
       {/* ── Barra de filtros ── */}
-      <div className="bg-white rounded-xl shadow-sm p-3 flex items-center gap-3 flex-wrap">
+      <div className="bg-white rounded-xl shadow-sm px-4 py-2.5 flex items-center gap-3 flex-wrap">
+        {/* Filter tabs: Minha / Todos / Por usuário */}
+        <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
+          <button onClick={() => setFilterMode('mine')}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${filterMode === 'mine' ? 'bg-white text-erplus-accent shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            Minha
+          </button>
+          <button onClick={() => setFilterMode('all')}
+            className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${filterMode === 'all' ? 'bg-white text-erplus-accent shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+            Todos
+          </button>
+          <div className="relative" ref={userPickerRef}>
+            <button
+              onClick={() => { setShowUserPicker(p => !p); }}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition ${filterMode === 'user' ? 'bg-white text-erplus-accent shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+              {filterMode === 'user' && userFilter
+                ? (users.find(u => String(u.id) === String(userFilter))?.name || 'Usuário')
+                : 'Por usuário...'}
+              <ChevronDown size={11} />
+            </button>
+            {showUserPicker && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-50 min-w-[180px] py-1">
+                {users.map(u => (
+                  <button key={u.id}
+                    onClick={() => { setFilterMode('user'); setUserFilter(String(u.id)); setShowUserPicker(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs font-medium hover:bg-gray-50 flex items-center gap-2 ${String(userFilter) === String(u.id) && filterMode === 'user' ? 'text-erplus-accent' : 'text-gray-700'}`}>
+                    <div className="w-5 h-5 rounded-full bg-erplus-accent text-white flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                      {u.initials || u.name?.slice(0,2).toUpperCase()}
+                    </div>
+                    {u.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* View mode */}
         <div className="flex items-center bg-gray-100 rounded-lg p-0.5 gap-0.5">
           {[
-            { id: 'dia', label: 'Dia', icon: CalendarDays },
-            { id: 'mes', label: 'Mês', icon: Calendar },
-            { id: 'ano', label: 'Ano', icon: LayoutList },
-          ].map(({ id, label, icon: Icon }) => (
+            { id: 'dia',    label: 'Dia' },
+            { id: 'semana', label: 'Semana' },
+            { id: 'mes',    label: 'Mês' },
+            { id: 'ano',    label: 'Ano' },
+          ].map(({ id, label }) => (
             <button key={id} onClick={() => setViewMode(id)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition ${
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition ${
                 viewMode === id ? 'bg-white text-erplus-accent shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}>
-              <Icon size={13} />{label}
+              {label}
             </button>
           ))}
         </div>
@@ -980,49 +1353,35 @@ export default function SchedulePage() {
         {/* Navegação */}
         <div className="flex items-center gap-1">
           <button onClick={prev} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><ChevronLeft size={16} /></button>
-          <span className="text-sm font-bold text-erplus-text min-w-[160px] text-center">{headerLabel}</span>
+          <button onClick={goToday}
+            className="px-3 py-1.5 text-xs font-semibold border border-gray-200 rounded-lg hover:bg-gray-50 transition text-gray-700">
+            Hoje
+          </button>
           <button onClick={next} className="p-1.5 hover:bg-gray-100 rounded-lg transition"><ChevronRight size={16} /></button>
-        </div>
-
-        <button onClick={goToday}
-          className="px-3 py-1.5 text-xs font-semibold text-erplus-accent border border-erplus-accent/30 rounded-lg hover:bg-erplus-accent/5 transition">
-          Hoje
-        </button>
-
-        {/* Filtro usuário */}
-        <div className="ml-auto">
-          <Select
-            value={userFilter}
-            onChange={(v) => setUserFilter(v)}
-            options={[{ value: '', label: 'Todos os usuários' }, ...users.map((u) => ({ value: u.id, label: u.name }))]}
-            size="sm"
-          />
+          <span className="text-sm font-bold text-erplus-text ml-1">{headerLabel}</span>
         </div>
       </div>
 
       {/* ── View: DIA ── */}
       {viewMode === 'dia' && (
-        <div className="bg-white rounded-xl shadow-sm p-5">
-          <h3 className="text-sm font-bold text-gray-700 mb-4">
-            {filteredEvents.filter(e => e.date?.slice(0, 10) === currentDate.toISOString().slice(0, 10)).length} evento(s)
-          </h3>
-          {loading ? (
-            <div className="text-center py-8 text-gray-400 text-sm">Carregando...</div>
-          ) : filteredEvents.filter(e => e.date?.slice(0, 10) === currentDate.toISOString().slice(0, 10)).length === 0 ? (
-            <div className="text-center py-10 text-gray-300">
-              <Calendar size={36} className="mx-auto mb-2 opacity-40" />
-              <p className="text-sm">Nenhum evento neste dia</p>
-              <button onClick={() => setModal('newEvent')} className="mt-3 text-xs text-erplus-accent hover:underline">+ Adicionar evento</button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredEvents
-                .filter(e => e.date?.slice(0, 10) === currentDate.toISOString().slice(0, 10))
-                .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
-                .map((ev) => <EntryRow key={`${ev._isTask ? 't' : 'e'}-${ev.id}`} ev={ev} onEdit={() => setModal(ev)} onDelete={() => handleDelete(ev)} />)}
-            </div>
-          )}
-        </div>
+        <DayView
+          date={currentDate}
+          entries={filteredEvents}
+          onEdit={(ev) => setModal(ev)}
+          onDelete={(ev) => handleDelete(ev)}
+          onNewEvent={(time, dateStr) => setModal({ _newWithTime: time, date: dateStr || currentDate.toISOString().slice(0, 10) })}
+        />
+      )}
+
+      {/* ── View: SEMANA ── */}
+      {viewMode === 'semana' && (
+        <WeekView
+          date={currentDate}
+          entries={filteredEvents}
+          onEdit={(ev) => setModal(ev)}
+          onDelete={(ev) => handleDelete(ev)}
+          onNewEvent={(time, dateStr) => setModal({ _newWithTime: time, date: dateStr || currentDate.toISOString().slice(0, 10) })}
+        />
       )}
 
       {/* ── View: MÊS ── */}
@@ -1060,34 +1419,22 @@ export default function SchedulePage() {
 
       {/* ── View: ANO ── */}
       {viewMode === 'ano' && (
-        <div className="grid grid-cols-3 md:grid-cols-4 gap-3">
-          {MONTH_NAMES.map((name, mi) => {
-            const monthEvents = filteredEvents.filter(e => {
-              const d = e.date?.slice(0, 10);
-              return d && d.startsWith(`${year}-${String(mi + 1).padStart(2, '0')}`);
-            });
-            const isCurrentMonth = mi === new Date().getMonth() && year === new Date().getFullYear();
-            return (
-              <div key={mi}
-                onClick={() => { setCurrentDate(new Date(year, mi, 1)); setViewMode('mes'); }}
-                className={`bg-white rounded-xl shadow-sm p-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all ${isCurrentMonth ? 'ring-2 ring-erplus-accent/40' : ''}`}>
-                <div className={`text-sm font-bold mb-2 ${isCurrentMonth ? 'text-erplus-accent' : 'text-gray-700'}`}>{name}</div>
-                <div className="text-2xl font-extrabold text-gray-700">{monthEvents.length}</div>
-                <div className="text-xs text-gray-400 mt-0.5">evento{monthEvents.length !== 1 ? 's' : ''}</div>
-                {monthEvents.slice(0, 2).map((ev) => (
-                  <div key={ev.id} className="mt-1 text-[10px] px-1.5 py-0.5 rounded truncate font-medium text-white"
-                    style={{ background: ev.color || '#6B7280' }}>
-                    {ev.title}
-                  </div>
-                ))}
-              </div>
-            );
-          })}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+          {MONTH_NAMES.map((_, mi) => (
+            <MiniMonth
+              key={mi}
+              year={year}
+              monthIndex={mi}
+              entries={filteredEvents}
+              todayStr={todayStr}
+              onDayClick={(y, m, d) => { setCurrentDate(new Date(y, m, d)); setViewMode('dia'); }}
+            />
+          ))}
         </div>
       )}
 
       {/* ── Lista de eventos ── */}
-      {viewMode !== 'dia' && (
+      {viewMode !== 'dia' && viewMode !== 'semana' && (
         <div className="bg-white rounded-xl shadow-sm p-5">
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
             <Calendar size={14} />

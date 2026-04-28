@@ -20,15 +20,23 @@ public class ContractService
         var contracts = await query.OrderByDescending(c => c.DataInicio)
             .Select(c => new ContractDto(c.Id, c.Numero, c.QuoteId, c.DealId, c.ClientId,
                 c.Titulo, c.Valor, c.Status, c.DataInicio, c.DataFim, c.ResponsibleId,
-                c.Registro, c.InscricaoImob, c.EndEmpreendimento, c.BusinessTypeId))
+                c.Registro, c.InscricaoImob, c.EndEmpreendimento, c.BusinessTypeId,
+                c.FormaPagamento, c.NumeroParcelas, c.DataPrimeiroPagamento))
             .ToListAsync();
         return Result<List<ContractDto>>.Success(contracts);
     }
 
     public async Task<Result<ContractDto>> CreateAsync(CreateContractRequest r)
     {
-        var deal = await _db.Deals.FindAsync(r.DealId);
-        if (deal is null) return Result<ContractDto>.Failure("Negócio não encontrado");
+        if (string.IsNullOrWhiteSpace(r.Titulo))
+            return Result<ContractDto>.Failure("Título é obrigatório");
+
+        Deal? deal = null;
+        if (r.DealId.HasValue)
+        {
+            deal = await _db.Deals.FindAsync(r.DealId.Value);
+            if (deal is null) return Result<ContractDto>.Failure("Negócio não encontrado");
+        }
 
         var maxNum = await _db.Contracts.MaxAsync(c => (int?)c.Id) ?? 0;
         var contract = new Contract
@@ -39,14 +47,17 @@ public class ContractService
             Titulo = r.Titulo.Trim(),
             Valor = r.Valor,
             Status = "Vigente",
-            DataInicio = DateTime.UtcNow,
+            DataInicio = r.DataInicio ?? DateTime.UtcNow,
             DataFim = r.DataFim,
-            ResponsibleId = r.ResponsibleId,
+            ResponsibleId = r.ResponsibleId > 0 ? r.ResponsibleId : 1,
             QuoteId = r.QuoteId,
-            Registro = deal.Registro,
-            InscricaoImob = deal.InscricaoImob,
-            EndEmpreendimento = deal.EndEmpreendimento,
-            BusinessTypeId = deal.BusinessTypeId
+            Registro = deal?.Registro,
+            InscricaoImob = deal?.InscricaoImob,
+            EndEmpreendimento = deal?.EndEmpreendimento,
+            BusinessTypeId = deal?.BusinessTypeId,
+            FormaPagamento = r.FormaPagamento ?? "Boleto",
+            NumeroParcelas = r.NumeroParcelas > 0 ? r.NumeroParcelas : 1,
+            DataPrimeiroPagamento = r.DataPrimeiroPagamento,
         };
         _db.Contracts.Add(contract);
         await _db.SaveChangesAsync();
@@ -55,7 +66,8 @@ public class ContractService
             contract.Id, contract.Numero, contract.QuoteId, contract.DealId, contract.ClientId,
             contract.Titulo, contract.Valor, contract.Status, contract.DataInicio, contract.DataFim,
             contract.ResponsibleId, contract.Registro, contract.InscricaoImob,
-            contract.EndEmpreendimento, contract.BusinessTypeId));
+            contract.EndEmpreendimento, contract.BusinessTypeId,
+            contract.FormaPagamento, contract.NumeroParcelas, contract.DataPrimeiroPagamento));
     }
 }
 
