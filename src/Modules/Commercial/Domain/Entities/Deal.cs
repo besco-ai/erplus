@@ -63,25 +63,31 @@ public class PipelineStage : BaseEntity
 public class Quote : BaseEntity
 {
     public string Numero { get; set; } = string.Empty;
-    public int DealId { get; set; }
+    public int? DealId { get; set; }          // opcional — vincular a negócio
     public string Titulo { get; set; } = string.Empty;
     public int ClientId { get; set; }
-    public string? ItemsJson { get; set; } // JSON serialized items
+    public string? ItemsJson { get; set; }
     public decimal Valor { get; set; }
-    public string Status { get; set; } = "Rascunho"; // Rascunho, Enviado, Aprovado, Recusado
+    public string Status { get; set; } = "Rascunho";
     public DateTime Data { get; set; }
     public DateTime? Validade { get; set; }
     public string? Conditions { get; set; }
     public DateTime? StatusChangedAt { get; set; }
 
-    public Deal Deal { get; set; } = null!;
+    // Pagamento
+    public string? FormaPagamento { get; set; }       // Boleto, PIX, Transferência, Cartão, etc.
+    public int NumeroParcelas { get; set; } = 1;
+    public DateTime? DataPrimeiroPagamento { get; set; }
+    public string? Observacoes { get; set; }
+
+    public Deal? Deal { get; set; }
 }
 
 public class Contract : BaseEntity
 {
     public string Numero { get; set; } = string.Empty;
     public int? QuoteId { get; set; }
-    public int DealId { get; set; }
+    public int? DealId { get; set; }          // opcional
     public int ClientId { get; set; }
     public string Titulo { get; set; } = string.Empty;
     public decimal Valor { get; set; }
@@ -94,7 +100,12 @@ public class Contract : BaseEntity
     public string? EndEmpreendimento { get; set; }
     public int? BusinessTypeId { get; set; }
 
-    public Deal Deal { get; set; } = null!;
+    // Pagamento
+    public string? FormaPagamento { get; set; }
+    public int NumeroParcelas { get; set; } = 1;
+    public DateTime? DataPrimeiroPagamento { get; set; }
+
+    public Deal? Deal { get; set; }
 }
 
 public class DealAta : BaseEntity

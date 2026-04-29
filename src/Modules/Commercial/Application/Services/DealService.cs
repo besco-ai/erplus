@@ -40,14 +40,23 @@ public class DealService
         if (responsibleId.HasValue) query = query.Where(d => d.ResponsibleId == responsibleId.Value);
         if (clientId.HasValue) query = query.Where(d => d.ClientId == clientId.Value);
 
-        var deals = await query.OrderByDescending(d => d.Date)
-            .Select(d => new DealDto(
-                d.Id, d.Title, d.ClientId, null, d.Value,
-                d.PipelineId, d.Pipeline.Name, d.StageId, d.Stage.Name,
-                d.ResponsibleId, null, d.Date, d.Probability, d.DealStatus,
-                d.BusinessTypeId, null, d.Registro, d.InscricaoImob, d.EndEmpreendimento,
-                d.Quotes.Count, d.Contracts.Count, d.Atas.Count))
-            .ToListAsync();
+        var rawDeals = await query.OrderByDescending(d => d.Date).ToListAsync();
+
+        // Carrega BusinessTypes em memória para evitar dependência de navigation property
+        var btIds  = rawDeals.Where(d => d.BusinessTypeId.HasValue).Select(d => d.BusinessTypeId!.Value).Distinct().ToList();
+        var btDict = btIds.Count > 0
+            ? await _db.BusinessTypes.Where(bt => btIds.Contains(bt.Id)).ToDictionaryAsync(bt => bt.Id, bt => bt.Name)
+            : new Dictionary<int, string>();
+
+        var deals = rawDeals.Select(d => new DealDto(
+            d.Id, d.Title, d.ClientId, null, d.Value,
+            d.PipelineId, d.Pipeline?.Name, d.StageId, d.Stage?.Name,
+            d.ResponsibleId, null, d.Date, d.Probability, d.DealStatus,
+            d.BusinessTypeId,
+            d.BusinessTypeId.HasValue ? btDict.GetValueOrDefault(d.BusinessTypeId.Value) : null,
+            d.Registro, d.InscricaoImob, d.EndEmpreendimento,
+            d.Quotes.Count, d.Contracts.Count, d.Atas.Count))
+            .ToList();
 
         return Result<List<DealDto>>.Success(deals);
     }
@@ -70,10 +79,12 @@ public class DealService
             d.Date, d.Probability, d.Notes, d.DealStatus, d.BusinessTypeId,
             d.Registro, d.InscricaoImob, d.EndEmpreendimento,
             d.Quotes.Select(q => new QuoteDto(q.Id, q.Numero, q.DealId, q.Titulo, q.ClientId,
-                q.ItemsJson, q.Valor, q.Status, q.Data, q.Validade, q.Conditions, q.StatusChangedAt)).ToList(),
+                q.ItemsJson, q.Valor, q.Status, q.Data, q.Validade, q.Conditions, q.StatusChangedAt,
+                q.FormaPagamento, q.NumeroParcelas, q.DataPrimeiroPagamento, q.Observacoes)).ToList(),
             d.Contracts.Select(c => new ContractDto(c.Id, c.Numero, c.QuoteId, c.DealId, c.ClientId,
                 c.Titulo, c.Valor, c.Status, c.DataInicio, c.DataFim, c.ResponsibleId,
-                c.Registro, c.InscricaoImob, c.EndEmpreendimento, c.BusinessTypeId)).ToList(),
+                c.Registro, c.InscricaoImob, c.EndEmpreendimento, c.BusinessTypeId,
+                c.FormaPagamento, c.NumeroParcelas, c.DataPrimeiroPagamento)).ToList(),
             d.Atas.OrderByDescending(a => a.Date).Select(a => new DealAtaDto(
                 a.Id, a.DealId, a.Title, a.Date, a.Content, a.LinksJson)).ToList(),
             d.Diligences.Select(di => new DealDiligenceDto(

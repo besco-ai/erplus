@@ -41,26 +41,32 @@ public record UpdateStageRequest(string? Name, int? Order, string? AutoTasksJson
 
 // ── Quote ──
 public record QuoteDto(
-    int Id, string Numero, int DealId, string Titulo, int ClientId,
+    int Id, string Numero, int? DealId, string Titulo, int ClientId,
     string? ItemsJson, decimal Valor, string Status, DateTime Data,
-    DateTime? Validade, string? Conditions, DateTime? StatusChangedAt);
+    DateTime? Validade, string? Conditions, DateTime? StatusChangedAt,
+    string? FormaPagamento, int NumeroParcelas, DateTime? DataPrimeiroPagamento,
+    string? Observacoes);
 
 public record CreateQuoteRequest(
-    int DealId, string Titulo, int ClientId, string? ItemsJson,
-    decimal Valor, DateTime? Validade, string? Conditions);
+    int? DealId, string Titulo, int ClientId, string? ItemsJson,
+    decimal Valor, DateTime? Validade, string? Conditions,
+    string? FormaPagamento, int NumeroParcelas, DateTime? DataPrimeiroPagamento,
+    string? Observacoes);
 
 public record UpdateQuoteStatusRequest(string Status);
 
 // ── Contract ──
 public record ContractDto(
-    int Id, string Numero, int? QuoteId, int DealId, int ClientId,
+    int Id, string Numero, int? QuoteId, int? DealId, int ClientId,
     string Titulo, decimal Valor, string Status, DateTime DataInicio,
     DateTime? DataFim, int ResponsibleId, string? Registro,
-    string? InscricaoImob, string? EndEmpreendimento, int? BusinessTypeId);
+    string? InscricaoImob, string? EndEmpreendimento, int? BusinessTypeId,
+    string? FormaPagamento, int NumeroParcelas, DateTime? DataPrimeiroPagamento);
 
 public record CreateContractRequest(
-    int DealId, int ClientId, string Titulo, decimal Valor,
-    int ResponsibleId, DateTime? DataFim, int? QuoteId);
+    int? DealId, int ClientId, string Titulo, decimal Valor,
+    int ResponsibleId, DateTime? DataInicio, DateTime? DataFim, int? QuoteId,
+    string? FormaPagamento, int NumeroParcelas, DateTime? DataPrimeiroPagamento);
 
 // ── Ata ──
 public record DealAtaDto(int Id, int DealId, string Title, DateTime Date, string Content, string? LinksJson);

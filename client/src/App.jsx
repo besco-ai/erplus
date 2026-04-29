@@ -5,6 +5,7 @@ import LoginPage from './features/auth/LoginPage';
 import TeamPage from './features/auth/TeamPage';
 import ContactsPage from './features/crm/ContactsPage';
 import PipelinePage from './features/commercial/PipelinePage';
+import PipelineDetailPage from './features/commercial/PipelineDetailPage';
 import QuotesPage from './features/commercial/QuotesPage';
 import ContractsPage from './features/commercial/ContractsPage';
 import FinancePage from './features/finance/FinancePage';
@@ -71,6 +72,7 @@ export default function App() {
         {/* Comercial */}
         <Route path="comercial/dashboard" element={<ComercialDashboardPage />} />
         <Route path="comercial" element={<PipelinePage />} />
+        <Route path="comercial/pipeline/:id" element={<PipelineDetailPage />} />
         <Route path="orcamentos" element={<QuotesPage />} />
         <Route path="contratos" element={<ContractsPage />} />
 
