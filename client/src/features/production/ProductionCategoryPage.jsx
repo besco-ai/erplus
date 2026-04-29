@@ -40,24 +40,28 @@ function ItemModal({ item, category, singular, users, deals, onClose, onSaved })
     category,
   });
 
-  // Subtarefas
+  // Subtarefas — cada item: { title, due, responsibleId }
   const initSubs = useMemo(() => {
-    try { return item?.subtasksJson ? JSON.parse(item.subtasksJson) : []; }
-    catch { return []; }
+    try {
+      const parsed = item?.subtasksJson ? JSON.parse(item.subtasksJson) : [];
+      // suporte a versão antiga (array de strings)
+      return parsed.map((s) => typeof s === 'string' ? { title: s, due: '', responsibleId: '' } : s);
+    } catch { return []; }
   }, [item]);
   const [subtasks, setSubtasks] = useState(initSubs);
-  const [subInput, setSubInput] = useState('');
+  const [subForm,  setSubForm]  = useState({ title: '', due: '', responsibleId: '' });
 
   const [error,  setError]  = useState('');
   const [saving, setSaving] = useState(false);
 
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+  const setSub = (k) => (v) => setSubForm((f) => ({ ...f, [k]: v }));
 
   const addSubtask = () => {
-    const t = subInput.trim();
+    const t = subForm.title.trim();
     if (!t) return;
-    setSubtasks((prev) => [...prev, t]);
-    setSubInput('');
+    setSubtasks((prev) => [...prev, { title: t, due: subForm.due, responsibleId: subForm.responsibleId }]);
+    setSubForm({ title: '', due: '', responsibleId: '' });
   };
 
   const removeSubtask = (i) => setSubtasks((prev) => prev.filter((_, idx) => idx !== i));
@@ -172,33 +176,76 @@ function ItemModal({ item, category, singular, users, deals, onClose, onSaved })
           {/* Subtarefas */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Subtarefas</label>
-            {/* Lista */}
+
+            {/* Lista de subtarefas adicionadas */}
             {subtasks.length > 0 && (
-              <ul className="mb-2 space-y-1">
-                {subtasks.map((s, i) => (
-                  <li key={i} className="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-3 py-1.5">
-                    <span className="flex-1 text-gray-700">{s}</span>
-                    <button onClick={() => removeSubtask(i)} className="text-gray-300 hover:text-red-500 transition-colors">
-                      <X size={13} />
-                    </button>
-                  </li>
-                ))}
+              <ul className="mb-3 space-y-1.5">
+                {subtasks.map((s, i) => {
+                  const respName = users.find((u) => String(u.id) === String(s.responsibleId))?.name
+                    || users.find((u) => String(u.id) === String(s.responsibleId))?.nome
+                    || null;
+                  return (
+                    <li key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-800 truncate">{s.title}</div>
+                        {(s.due || respName) && (
+                          <div className="flex items-center gap-3 mt-0.5">
+                            {s.due && (
+                              <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                                <Clock size={10} />{s.due}
+                              </span>
+                            )}
+                            {respName && (
+                              <span className="text-[11px] text-gray-400 truncate">{respName}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <button onClick={() => removeSubtask(i)} className="mt-0.5 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+                        <X size={13} />
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             )}
-            {/* Input */}
-            <div className="flex gap-2">
+
+            {/* Mini-form nova subtarefa */}
+            <div className="border border-dashed border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50/50">
+              {/* Título */}
               <input
-                value={subInput}
-                onChange={(e) => setSubInput(e.target.value)}
+                value={subForm.title}
+                onChange={(e) => setSub('title')(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
-                placeholder="Nova subtarefa..."
-                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
+                placeholder="Título da subtarefa..."
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
               />
+              {/* Responsável + Prazo */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Responsável</label>
+                  <Select
+                    value={subForm.responsibleId}
+                    onChange={setSub('responsibleId')}
+                    options={[{ value: '', label: '— Nenhum —' }, ...userOptions]}
+                    placeholder="— Nenhum —"
+                    size="sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Prazo</label>
+                  <DatePicker
+                    value={subForm.due}
+                    onChange={setSub('due')}
+                    placeholder="Selecionar data"
+                  />
+                </div>
+              </div>
               <button
                 onClick={addSubtask}
-                className="flex items-center gap-1 px-3 py-2 bg-erplus-accent text-white text-sm font-semibold rounded-lg hover:bg-erplus-accent/90 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-erplus-accent text-white text-xs font-semibold rounded-lg hover:bg-erplus-accent/90 transition-colors"
               >
-                <Plus size={14} /> Add
+                <Plus size={13} /> Adicionar subtarefa
               </button>
             </div>
           </div>
@@ -227,8 +274,10 @@ function ItemModal({ item, category, singular, users, deals, onClose, onSaved })
 /* ── Kanban Card ────────────────────────────────────────────────────────── */
 function KanbanCard({ item, onEdit, onDelete }) {
   const subtasks = useMemo(() => {
-    try { return item.subtasksJson ? JSON.parse(item.subtasksJson) : []; }
-    catch { return []; }
+    try {
+      const parsed = item.subtasksJson ? JSON.parse(item.subtasksJson) : [];
+      return parsed.map((s) => typeof s === 'string' ? { title: s, due: '', responsibleId: '' } : s);
+    } catch { return []; }
   }, [item.subtasksJson]);
 
   return (
