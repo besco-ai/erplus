@@ -84,5 +84,31 @@ public class ProjectsModuleInstaller : IModuleInstaller
         using var scope = app.ApplicationServices.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ProjectsDbContext>();
         db.Database.Migrate();
+        SeedDefaultPipeline(db);
+    }
+
+    private static void SeedDefaultPipeline(ProjectsDbContext db)
+    {
+        // Cria o pipeline "Empreendimentos" com as 4 etapas padrão se ainda não existir nenhum pipeline.
+        if (db.Pipelines.Any()) return;
+
+        var pipeline = new ERPlus.Modules.Projects.Domain.Entities.ProjectPipeline
+        {
+            Name      = "Empreendimentos",
+            Order     = 1,
+            CreatedAt = DateTime.UtcNow,
+        };
+        db.Pipelines.Add(pipeline);
+        db.SaveChanges();
+
+        var stages = new[]
+        {
+            new ERPlus.Modules.Projects.Domain.Entities.ProjectStage { PipelineId = pipeline.Id, Name = "Aprovação",  Order = 1, CreatedAt = DateTime.UtcNow },
+            new ERPlus.Modules.Projects.Domain.Entities.ProjectStage { PipelineId = pipeline.Id, Name = "Em projeto", Order = 2, CreatedAt = DateTime.UtcNow },
+            new ERPlus.Modules.Projects.Domain.Entities.ProjectStage { PipelineId = pipeline.Id, Name = "Em obra",    Order = 3, CreatedAt = DateTime.UtcNow },
+            new ERPlus.Modules.Projects.Domain.Entities.ProjectStage { PipelineId = pipeline.Id, Name = "Entregue",   Order = 4, CreatedAt = DateTime.UtcNow },
+        };
+        db.Stages.AddRange(stages);
+        db.SaveChanges();
     }
 }
