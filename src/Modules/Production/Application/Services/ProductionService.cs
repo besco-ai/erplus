@@ -55,7 +55,8 @@ public class ProductionService
                 i.DealId, i.ProjectId, i.ClientId, i.ResponsibleId, i.Due,
                 i.ProdItemTypeId, i.ProdItemType != null ? i.ProdItemType.Name : null,
                 i.CreatedAt,
-                i.Status != "Finalizado" && i.Due.HasValue && i.Due.Value.Date < today))
+                i.Status != "Finalizado" && i.Due.HasValue && i.Due.Value.Date < today,
+                i.SubtasksJson))
             .ToListAsync();
         return Result<List<ProductionItemDto>>.Success(items);
     }
@@ -71,7 +72,8 @@ public class ProductionService
             Category = r.Category, Status = "Não iniciado",
             ResponsibleId = r.ResponsibleId > 0 ? r.ResponsibleId : 1,
             Due = ToUtc(r.Due), DealId = r.DealId, ProjectId = r.ProjectId,
-            ClientId = r.ClientId, ProdItemTypeId = r.ProdItemTypeId
+            ClientId = r.ClientId, ProdItemTypeId = r.ProdItemTypeId,
+            SubtasksJson = r.SubtasksJson
         };
         _db.Items.Add(item);
         await _db.SaveChangesAsync();
@@ -79,7 +81,7 @@ public class ProductionService
         return Result<ProductionItemDto>.Created(new ProductionItemDto(
             item.Id, item.Title, item.Description, item.Category, item.Status,
             item.DealId, item.ProjectId, item.ClientId, item.ResponsibleId, item.Due,
-            item.ProdItemTypeId, null, item.CreatedAt, false));
+            item.ProdItemTypeId, null, item.CreatedAt, false, item.SubtasksJson));
     }
 
     public async Task<Result<ProductionItemDto>> UpdateAsync(int id, UpdateProductionItemRequest r)
@@ -105,7 +107,8 @@ public class ProductionService
             item.Id, item.Title, item.Description, item.Category, item.Status,
             item.DealId, item.ProjectId, item.ClientId, item.ResponsibleId, item.Due,
             item.ProdItemTypeId, null, item.CreatedAt,
-            item.Status != "Finalizado" && item.Due.HasValue && item.Due.Value.Date < today));
+            item.Status != "Finalizado" && item.Due.HasValue && item.Due.Value.Date < today,
+            item.SubtasksJson));
     }
 
     public async Task<Result<bool>> DeleteAsync(int id)

@@ -22,6 +22,7 @@ public class TasksModuleInstaller : IModuleInstaller
                 npg => npg.MigrationsHistoryTable("__EFMigrationsHistory", TasksDbContext.Schema)));
 
         services.AddScoped<TaskService>();
+        services.AddScoped<PlanningService>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -65,6 +66,36 @@ public class TasksModuleInstaller : IModuleInstaller
         group.MapDelete("/series/{recurrenceId}", async (string recurrenceId, TaskService svc) =>
         {
             var r = await svc.DeleteSeriesAsync(recurrenceId);
+            return r.IsSuccess ? Results.NoContent() : Results.NotFound();
+        });
+
+        // Planejamentos
+        var planning = endpoints.MapGroup("/api/plannings").WithTags("Plannings").RequireAuthorization();
+
+        planning.MapGet("/", async (int? responsibleId, string? status, string? priority, PlanningService svc) =>
+            Results.Ok((await svc.GetAllAsync(responsibleId, status, priority)).Data));
+
+        planning.MapPost("/", async (CreatePlanningRequest req, PlanningService svc) =>
+        {
+            var r = await svc.CreateAsync(req);
+            return r.IsSuccess ? Results.Created($"/api/plannings/{r.Data!.Id}", r.Data) : Results.BadRequest(new { error = r.Error });
+        });
+
+        planning.MapPut("/{id:int}", async (int id, UpdatePlanningRequest req, PlanningService svc) =>
+        {
+            var r = await svc.UpdateAsync(id, req);
+            return r.IsSuccess ? Results.Ok(r.Data) : r.StatusCode == 404 ? Results.NotFound() : Results.BadRequest(new { error = r.Error });
+        });
+
+        planning.MapPatch("/{id:int}/move", async (int id, MoveRequest req, PlanningService svc) =>
+        {
+            var r = await svc.MoveAsync(id, req.Status);
+            return r.IsSuccess ? Results.Ok(r.Data) : Results.NotFound();
+        });
+
+        planning.MapDelete("/{id:int}", async (int id, PlanningService svc) =>
+        {
+            var r = await svc.DeleteAsync(id);
             return r.IsSuccess ? Results.NoContent() : Results.NotFound();
         });
     }

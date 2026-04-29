@@ -4,11 +4,12 @@ public record ProductionItemDto(
     int Id, string Title, string? Description, string Category, string Status,
     int? DealId, int? ProjectId, int? ClientId, int ResponsibleId,
     DateTime? Due, int? ProdItemTypeId, string? ProdItemTypeName,
-    DateTime CreatedAt, bool IsOverdue);
+    DateTime CreatedAt, bool IsOverdue, string? SubtasksJson);
 
 public record CreateProductionItemRequest(
     string Title, string? Description, string Category, int ResponsibleId,
-    DateTime? Due, int? DealId, int? ProjectId, int? ClientId, int? ProdItemTypeId);
+    DateTime? Due, int? DealId, int? ProjectId, int? ClientId, int? ProdItemTypeId,
+    string? SubtasksJson);
 
 public record UpdateProductionItemRequest(
     string? Title, string? Description, string? Status, int? ResponsibleId,

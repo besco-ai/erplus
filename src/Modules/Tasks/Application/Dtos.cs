@@ -1,5 +1,21 @@
 namespace ERPlus.Modules.Tasks.Application;
 
+// Planning DTOs
+public record PlanningDto(
+    int Id, string Title, string? Description, string Status,
+    string Priority, int ResponsibleId, DateTime? Due, DateTime CreatedAt);
+
+public record CreatePlanningRequest(
+    string Title, string? Description, string? Status, string? Priority,
+    int ResponsibleId, DateTime? Due);
+
+public record UpdatePlanningRequest(
+    string? Title, string? Description, string? Status, string? Priority,
+    int? ResponsibleId, DateTime? Due);
+
+public record MoveRequest(string Status);
+
+
 public record TaskDto(
     int Id, int? DealId, int? ProjectId, string Title, string? Description,
     string Status, int ResponsibleId, DateTime? Due, string? SubtasksJson,
