@@ -144,7 +144,7 @@ export default function Select({
     <>
       <div
         ref={triggerRef}
-        onClick={openDropdown}
+        onClick={() => open ? setOpen(false) : openDropdown()}
         className={[
           'relative flex items-center cursor-pointer',
           disabled ? 'opacity-50 cursor-not-allowed pointer-events-none' : '',
