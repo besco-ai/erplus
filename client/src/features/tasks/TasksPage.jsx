@@ -351,32 +351,26 @@ export default function TasksPage({ mine = false }) {
         </div>
 
         {/* Status */}
-        <select
+        <Select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 cursor-pointer"
-        >
-          <option value="">Todos status</option>
-          {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
+          onChange={(v) => setFilterStatus(v)}
+          options={[{ value: '', label: 'Todos status' }, ...STATUSES.map((s) => ({ value: s, label: s }))]}
+          placeholder="Todos status"
+        />
 
         {/* Origens */}
-        <select
+        <Select
           value={filterOrigin}
-          onChange={(e) => setFilterOrigin(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 cursor-pointer"
-        >
-          {ORIGIN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => setFilterOrigin(v)}
+          options={ORIGIN_OPTIONS}
+        />
 
         {/* Prazo */}
-        <select
+        <Select
           value={filterDue}
-          onChange={(e) => setFilterDue(e.target.value)}
-          className="px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white text-gray-700 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 cursor-pointer flex items-center gap-1"
-        >
-          {DUE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => setFilterDue(v)}
+          options={DUE_OPTIONS}
+        />
 
         {/* Count + clear */}
         <div className="flex items-center gap-2 ml-auto flex-shrink-0">

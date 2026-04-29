@@ -435,15 +435,12 @@ export default function QuotesPage() {
 
           {/* Client filter */}
           <div className="ml-auto flex items-center gap-3">
-            <select
+            <Select
               value={filterClient}
-              onChange={(e) => setFilterClient(e.target.value)}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 focus:border-erplus-accent bg-white"
-            >
-              {clientOptions.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+              onChange={(v) => setFilterClient(v)}
+              options={clientOptions}
+              placeholder="Todos os clientes"
+            />
 
             {/* Count */}
             <span className="text-sm text-gray-400 whitespace-nowrap">
