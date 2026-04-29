@@ -185,23 +185,28 @@ function ItemModal({ item, category, singular, users, deals, onClose, onSaved })
                     || users.find((u) => String(u.id) === String(s.responsibleId))?.nome
                     || null;
                   return (
-                    <li key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                    <li key={i} className="flex items-center gap-2 bg-white border border-gray-100 rounded-lg px-3 py-2 shadow-sm">
+                      {/* Número */}
+                      <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center rounded-full bg-erplus-accent/10 text-erplus-accent text-[10px] font-bold">
+                        {i + 1}
+                      </span>
+                      {/* Conteúdo */}
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium text-gray-800 truncate">{s.title}</div>
                         {(s.due || respName) && (
-                          <div className="flex items-center gap-3 mt-0.5">
+                          <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+                            {respName && (
+                              <span className="text-[11px] text-gray-400 truncate max-w-[120px]">{respName}</span>
+                            )}
                             {s.due && (
                               <span className="flex items-center gap-1 text-[11px] text-gray-400">
-                                <Clock size={10} />{s.due}
+                                <Clock size={10} />{fmtDate(s.due)}
                               </span>
-                            )}
-                            {respName && (
-                              <span className="text-[11px] text-gray-400 truncate">{respName}</span>
                             )}
                           </div>
                         )}
                       </div>
-                      <button onClick={() => removeSubtask(i)} className="mt-0.5 text-gray-300 hover:text-red-500 transition-colors flex-shrink-0">
+                      <button onClick={() => removeSubtask(i)} className="text-gray-300 hover:text-red-400 transition-colors flex-shrink-0 p-0.5">
                         <X size={13} />
                       </button>
                     </li>
@@ -211,42 +216,39 @@ function ItemModal({ item, category, singular, users, deals, onClose, onSaved })
             )}
 
             {/* Mini-form nova subtarefa */}
-            <div className="border border-dashed border-gray-200 rounded-xl p-3 space-y-2 bg-gray-50/50">
-              {/* Título */}
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50/40 p-3 space-y-2">
+              {/* Linha 1 — Título */}
               <input
                 value={subForm.title}
                 onChange={(e) => setSub('title')(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
                 placeholder="Título da subtarefa..."
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
               />
-              {/* Responsável + Prazo */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Responsável</label>
+              {/* Linha 2 — Responsável | Prazo | Botão (mesma altura py-2.5) */}
+              <div className="flex gap-2">
+                <div className="flex-1">
                   <Select
                     value={subForm.responsibleId}
                     onChange={setSub('responsibleId')}
-                    options={[{ value: '', label: '— Nenhum —' }, ...userOptions]}
-                    placeholder="— Nenhum —"
-                    size="sm"
+                    options={[{ value: '', label: 'Responsável...' }, ...userOptions]}
+                    placeholder="Responsável..."
                   />
                 </div>
-                <div>
-                  <label className="block text-[10px] font-semibold text-gray-400 uppercase mb-1">Prazo</label>
+                <div className="flex-1">
                   <DatePicker
                     value={subForm.due}
                     onChange={setSub('due')}
-                    placeholder="Selecionar data"
+                    placeholder="Prazo"
                   />
                 </div>
+                <button
+                  onClick={addSubtask}
+                  className="flex items-center gap-1.5 px-4 py-2.5 bg-erplus-accent text-white text-sm font-semibold rounded-lg hover:bg-erplus-accent/90 transition-colors whitespace-nowrap"
+                >
+                  <Plus size={14} /> Add
+                </button>
               </div>
-              <button
-                onClick={addSubtask}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-erplus-accent text-white text-xs font-semibold rounded-lg hover:bg-erplus-accent/90 transition-colors"
-              >
-                <Plus size={13} /> Adicionar subtarefa
-              </button>
             </div>
           </div>
         </div>
