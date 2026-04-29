@@ -1,112 +1,222 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, X, Save, Trash2, Edit, Clock, LayoutList, Kanban, Search } from 'lucide-react';
+import { Plus, X, Save, Trash2, Edit, Clock, LayoutList, LayoutGrid, Search } from 'lucide-react';
 import api from '../../services/api';
 import { fmtDate } from '../../utils/date';
 import DatePicker from '../../components/ui/DatePicker';
 import Select from '../../components/ui/Select';
 
+/* ── Singular labels por categoria ─────────────────────────────────────── */
+const SINGULAR = {
+  licenciamentos:  'Licenciamento',
+  design:          'Design Criativo',
+  projetos:        'Projeto',
+  revisao_tecnica: 'Revisão Técnica',
+  incorporacoes:   'Incorporação',
+  supervisao:      'Supervisão',
+  vistorias:       'Vistoria',
+  averbacoes:      'Averbação',
+};
+
 const STATUSES = ['Não iniciado', 'Em andamento', 'Em revisão', 'Finalizado'];
 
 const STATUS_STYLES = {
-  'Não iniciado': {
-    header: 'bg-gray-100 border-gray-200',
-    badge: 'bg-gray-100 text-gray-600',
-    dot: 'bg-gray-400',
-    drag: 'bg-gray-50/70',
-  },
-  'Em andamento': {
-    header: 'bg-blue-50 border-blue-100',
-    badge: 'bg-blue-100 text-blue-600',
-    dot: 'bg-blue-500',
-    drag: 'bg-blue-50/70',
-  },
-  'Em revisão': {
-    header: 'bg-amber-50 border-amber-100',
-    badge: 'bg-amber-100 text-amber-600',
-    dot: 'bg-amber-400',
-    drag: 'bg-amber-50/70',
-  },
-  'Finalizado': {
-    header: 'bg-green-50 border-green-100',
-    badge: 'bg-green-100 text-green-600',
-    dot: 'bg-green-500',
-    drag: 'bg-green-50/70',
-  },
+  'Não iniciado': { header: 'bg-gray-100 border-gray-200',   badge: 'bg-gray-100 text-gray-600',   dot: 'bg-gray-400'  },
+  'Em andamento': { header: 'bg-blue-50 border-blue-100',    badge: 'bg-blue-100 text-blue-600',   dot: 'bg-blue-500'  },
+  'Em revisão':   { header: 'bg-amber-50 border-amber-100',  badge: 'bg-amber-100 text-amber-600', dot: 'bg-amber-400' },
+  'Finalizado':   { header: 'bg-green-50 border-green-100',  badge: 'bg-green-100 text-green-600', dot: 'bg-green-500' },
 };
 
-/* ── Item Modal ──────────────────────────────────────────────────────────── */
-function ItemModal({ item, category, onClose, onSaved }) {
+/* ── Item Modal ─────────────────────────────────────────────────────────── */
+function ItemModal({ item, category, singular, users, deals, onClose, onSaved }) {
   const isEdit = !!item;
+
   const [form, setForm] = useState({
-    title: item?.title || '',
-    description: item?.description || '',
-    status: item?.status || 'Não iniciado',
-    responsibleId: item?.responsibleId || 1,
-    due: item?.due?.slice(0, 10) || '',
-    category: item?.category || category,
+    title:         item?.title        || '',
+    description:   item?.description  || '',
+    status:        item?.status       || 'Não iniciado',
+    responsibleId: item?.responsibleId|| '',
+    due:           item?.due?.slice(0, 10) || '',
+    dealId:        item?.dealId       || '',
+    category,
   });
-  const [error, setError] = useState('');
+
+  // Subtarefas
+  const initSubs = useMemo(() => {
+    try { return item?.subtasksJson ? JSON.parse(item.subtasksJson) : []; }
+    catch { return []; }
+  }, [item]);
+  const [subtasks, setSubtasks] = useState(initSubs);
+  const [subInput, setSubInput] = useState('');
+
+  const [error,  setError]  = useState('');
   const [saving, setSaving] = useState(false);
 
-  const handleSave = async () => {
-    setSaving(true);
-    setError('');
-    try {
-      const payload = { ...form, responsibleId: Number(form.responsibleId), due: form.due || null };
-      if (isEdit) await api.put(`/production/items/${item.id}`, payload);
-      else await api.post('/production/items', payload);
-      onSaved();
-      onClose();
-    } catch (err) {
-      setError(err.response?.data?.error || 'Erro');
-    } finally {
-      setSaving(false);
-    }
+  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const addSubtask = () => {
+    const t = subInput.trim();
+    if (!t) return;
+    setSubtasks((prev) => [...prev, t]);
+    setSubInput('');
   };
+
+  const removeSubtask = (i) => setSubtasks((prev) => prev.filter((_, idx) => idx !== i));
+
+  const handleSave = async () => {
+    if (!form.title.trim()) { setError('Título obrigatório.'); return; }
+    setSaving(true); setError('');
+    try {
+      const payload = {
+        title:         form.title.trim(),
+        description:   form.description || null,
+        category:      form.category,
+        status:        form.status,
+        responsibleId: Number(form.responsibleId) || 1,
+        due:           form.due || null,
+        dealId:        form.dealId ? Number(form.dealId) : null,
+        subtasksJson:  subtasks.length ? JSON.stringify(subtasks) : null,
+      };
+      if (isEdit) await api.put(`/production/items/${item.id}`, payload);
+      else        await api.post('/production/items', payload);
+      onSaved(); onClose();
+    } catch (err) { setError(err.response?.data?.error || 'Erro ao salvar.'); }
+    finally { setSaving(false); }
+  };
+
+  const userOptions = users.map((u) => ({ value: u.id, label: u.name || u.nome || u.email || `#${u.id}` }));
+  const dealOptions = [
+    { value: '', label: '— Nenhum —' },
+    ...deals.map((d) => ({ value: d.id, label: d.title || d.titulo || `#${d.id}` })),
+  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-lg font-bold">{isEdit ? 'Editar Item' : 'Novo Item'}</h3>
-          <button onClick={onClose} className="p-1 text-gray-400"><X size={20} /></button>
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+          <h3 className="text-base font-bold text-gray-800">
+            {isEdit ? `Editar ${singular}` : `Novo ${singular}`}
+          </h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 transition-colors">
+            <X size={18} />
+          </button>
         </div>
-        <div className="space-y-4">
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto">
+
+          {/* Título */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Título *</label>
-            <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="w-full" />
+            <input
+              value={form.title}
+              onChange={(e) => set('title')(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
+              placeholder={`Nome do ${singular.toLowerCase()}`}
+            />
           </div>
+
+          {/* Descrição */}
           <div>
             <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição</label>
             <textarea
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
-              rows={2}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm resize-none"
+              onChange={(e) => set('description')(e.target.value)}
+              rows={3}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
             />
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
-            <DatePicker value={form.due} onChange={(v) => setForm({ ...form, due: v })} className="w-full" />
+
+          {/* Responsável + Prazo */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Responsável</label>
+              <Select
+                value={form.responsibleId}
+                onChange={(v) => set('responsibleId')(Number(v))}
+                options={userOptions}
+                placeholder="Selecionar..."
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Prazo</label>
+              <DatePicker
+                value={form.due}
+                onChange={set('due')}
+                placeholder="Selecionar data"
+              />
+            </div>
           </div>
+
+          {/* Vincular a */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Vincular a</label>
+            <Select
+              value={form.dealId}
+              onChange={set('dealId')}
+              options={dealOptions}
+              placeholder="— Nenhum —"
+            />
+          </div>
+
+          {/* Status — só na edição */}
           {isEdit && (
             <div>
               <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Status</label>
-              <Select value={form.status} onChange={(v) => setForm({ ...form, status: v })} options={STATUSES} className="w-full" />
+              <Select value={form.status} onChange={set('status')} options={STATUSES} />
             </div>
           )}
+
+          {/* Subtarefas */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase mb-2">Subtarefas</label>
+            {/* Lista */}
+            {subtasks.length > 0 && (
+              <ul className="mb-2 space-y-1">
+                {subtasks.map((s, i) => (
+                  <li key={i} className="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-3 py-1.5">
+                    <span className="flex-1 text-gray-700">{s}</span>
+                    <button onClick={() => removeSubtask(i)} className="text-gray-300 hover:text-red-500 transition-colors">
+                      <X size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {/* Input */}
+            <div className="flex gap-2">
+              <input
+                value={subInput}
+                onChange={(e) => setSubInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && addSubtask()}
+                placeholder="Nova subtarefa..."
+                className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-erplus-accent/30"
+              />
+              <button
+                onClick={addSubtask}
+                className="flex items-center gap-1 px-3 py-2 bg-erplus-accent text-white text-sm font-semibold rounded-lg hover:bg-erplus-accent/90 transition-colors whitespace-nowrap"
+              >
+                <Plus size={14} /> Add
+              </button>
+            </div>
+          </div>
         </div>
-        {error && <div className="mt-3 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
-        <div className="flex justify-end gap-2 mt-6">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-gray-600 bg-gray-100 rounded-lg">Cancelar</button>
+
+        {error && <div className="mx-6 mb-2 p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>}
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-gray-50">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800 transition-colors">
+            Cancelar
+          </button>
           <button
             onClick={handleSave}
-            disabled={saving}
-            className="px-4 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg disabled:opacity-50 flex items-center gap-2"
+            disabled={saving || !form.title.trim()}
+            className="flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white bg-erplus-accent rounded-lg disabled:opacity-50 hover:bg-erplus-accent/90 transition-colors"
           >
-            <Save size={14} />
-            {saving ? 'Salvando...' : 'Salvar'}
+            <Save size={14} />{saving ? 'Salvando...' : 'Salvar'}
           </button>
         </div>
       </div>
@@ -114,8 +224,13 @@ function ItemModal({ item, category, onClose, onSaved }) {
   );
 }
 
-/* ── Kanban Card ─────────────────────────────────────────────────────────── */
+/* ── Kanban Card ────────────────────────────────────────────────────────── */
 function KanbanCard({ item, onEdit, onDelete }) {
+  const subtasks = useMemo(() => {
+    try { return item.subtasksJson ? JSON.parse(item.subtasksJson) : []; }
+    catch { return []; }
+  }, [item.subtasksJson]);
+
   return (
     <div
       draggable
@@ -125,44 +240,39 @@ function KanbanCard({ item, onEdit, onDelete }) {
       <div className="flex items-start justify-between gap-1 mb-1.5">
         <div className="text-sm font-semibold text-gray-900 leading-snug flex-1">{item.title}</div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-          <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="p-1 text-gray-300 hover:text-blue-500 rounded">
-            <Edit size={12} />
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="p-1 text-gray-300 hover:text-red-500 rounded">
-            <Trash2 size={12} />
-          </button>
+          <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} className="p-1 text-gray-300 hover:text-blue-500 rounded"><Edit size={12} /></button>
+          <button onClick={(e) => { e.stopPropagation(); onDelete(item.id); }} className="p-1 text-gray-300 hover:text-red-500 rounded"><Trash2 size={12} /></button>
         </div>
       </div>
       {item.description && <div className="text-xs text-gray-400 mb-2 line-clamp-2">{item.description}</div>}
       {item.prodItemTypeName && (
         <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">{item.prodItemTypeName}</span>
       )}
+      {subtasks.length > 0 && (
+        <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
+          <span className="bg-gray-100 rounded px-1.5 py-0.5">{subtasks.length} subtarefa{subtasks.length > 1 ? 's' : ''}</span>
+        </div>
+      )}
       {item.due && (
         <div className={`flex items-center gap-1 text-xs mt-1.5 ${item.isOverdue ? 'text-red-500 font-semibold' : 'text-gray-400'}`}>
-          <Clock size={10} />
-          {fmtDate(item.due)}
+          <Clock size={10} />{fmtDate(item.due)}
         </div>
       )}
     </div>
   );
 }
 
-/* ── Kanban Column ───────────────────────────────────────────────────────── */
+/* ── Kanban Column ──────────────────────────────────────────────────────── */
 function KanbanColumn({ status, items, onStatusDrop, onEdit, onDelete }) {
   const [dragOver, setDragOver] = useState(false);
   const st = STATUS_STYLES[status] || STATUS_STYLES['Não iniciado'];
 
   return (
     <div
-      className={`flex-shrink-0 w-64 flex flex-col rounded-xl border transition ${dragOver ? st.drag + ' border-opacity-60' : 'bg-gray-50/60 border-gray-100'}`}
+      className={`flex-shrink-0 w-64 flex flex-col rounded-xl border transition ${dragOver ? st.header + ' border-opacity-60' : 'bg-gray-50/60 border-gray-100'}`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
       onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setDragOver(false);
-        const id = e.dataTransfer.getData('itemId');
-        if (id) onStatusDrop(Number(id), status);
-      }}
+      onDrop={(e) => { e.preventDefault(); setDragOver(false); const id = e.dataTransfer.getData('itemId'); if (id) onStatusDrop(Number(id), status); }}
     >
       <div className={`px-3 py-2.5 rounded-t-xl border-b ${st.header}`}>
         <div className="flex items-center justify-between">
@@ -183,184 +293,169 @@ function KanbanColumn({ status, items, onStatusDrop, onEdit, onDelete }) {
   );
 }
 
-/* ── Main Page ───────────────────────────────────────────────────────────── */
+/* ── Main Page ──────────────────────────────────────────────────────────── */
 export default function ProductionCategoryPage({ category, label, color }) {
-  const [items, setItems] = useState([]);
+  const singular = SINGULAR[category] || label?.replace(/s$/, '') || 'Item';
+
+  const [items,   setItems]   = useState([]);
+  const [users,   setUsers]   = useState([]);
+  const [deals,   setDeals]   = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null);
-  const [view, setView] = useState('kanban');
+  const [modal,   setModal]   = useState(null); // null | 'new' | item
 
-  // Filter state
-  const [search, setSearch] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
+  const [view,              setView]              = useState('kanban');
+  const [search,            setSearch]            = useState('');
+  const [filterStatus,      setFilterStatus]      = useState('');
   const [filterResponsible, setFilterResponsible] = useState('');
-  const [filterVinculo, setFilterVinculo] = useState('');
-  const [filterClient, setFilterClient] = useState('');
+  const [filterVinculo,     setFilterVinculo]     = useState('');
+  const [filterClient,      setFilterClient]      = useState('');
 
-  // Filter options
-  const [users, setUsers] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [clients, setClients] = useState([]);
+  // Load users + deals once
+  useEffect(() => {
+    const safe = (r) => { const d = r?.data; return Array.isArray(d) ? d : (d?.items ?? []); };
+    Promise.allSettled([
+      api.get('/identity/users'),
+      api.get('/commercial/deals'),
+    ]).then(([uR, dR]) => {
+      if (uR.status === 'fulfilled') setUsers(safe(uR.value));
+      if (dR.status === 'fulfilled') setDeals(safe(dR.value));
+    });
+  }, []);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const r = await api.get(`/production/items?category=${category}`);
-      setItems(r.data);
+      setItems(Array.isArray(r.data) ? r.data : []);
     } catch { /* silent */ } finally { setLoading(false); }
   }, [category]);
 
-  // Fetch filter options once
-  useEffect(() => {
-    fetchData();
-    (async () => {
-      try {
-        const [uRes, pRes, cRes] = await Promise.allSettled([
-          api.get('/identity/users'),
-          api.get('/projects'),
-          api.get('/crm/contacts'),
-        ]);
-        if (uRes.status === 'fulfilled') {
-          const data = uRes.value.data;
-          setUsers((Array.isArray(data) ? data : data?.items ?? []).map((u) => ({ value: u.id, label: u.name })));
-        }
-        if (pRes.status === 'fulfilled') {
-          const data = pRes.value.data;
-          setProjects((Array.isArray(data) ? data : data?.items ?? []).map((p) => ({ value: p.id, label: p.title })));
-        }
-        if (cRes.status === 'fulfilled') {
-          const data = cRes.value.data;
-          setClients((Array.isArray(data) ? data : data?.items ?? []).map((c) => ({ value: c.id, label: c.name })));
-        }
-      } catch { /* silent */ }
-    })();
-  }, [fetchData]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   const handleStatusChange = async (id, newStatus) => {
-    await api.put(`/production/items/${id}`, { status: newStatus });
-    fetchData();
+    try {
+      await api.put(`/production/items/${id}`, { status: newStatus });
+      setItems((prev) => prev.map((i) => i.id === id ? { ...i, status: newStatus } : i));
+    } catch { /* silent */ }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Excluir?')) return;
-    await api.delete(`/production/items/${id}`);
-    fetchData();
+    if (!confirm('Excluir este item?')) return;
+    try {
+      await api.delete(`/production/items/${id}`);
+      setItems((prev) => prev.filter((i) => i.id !== id));
+    } catch { /* silent */ }
   };
 
-  // Apply filters
-  const filtered = useMemo(() => {
-    let list = items;
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((i) => i.title?.toLowerCase().includes(q) || i.description?.toLowerCase().includes(q));
-    }
-    if (filterStatus) list = list.filter((i) => i.status === filterStatus);
-    if (filterResponsible) list = list.filter((i) => String(i.responsibleId) === String(filterResponsible));
-    if (filterVinculo) list = list.filter((i) => String(i.projectId) === String(filterVinculo));
-    if (filterClient) list = list.filter((i) => String(i.clientId) === String(filterClient));
-    return list;
-  }, [items, search, filterStatus, filterResponsible, filterVinculo, filterClient]);
+  // Filter options from items
+  const userMap = useMemo(() => {
+    const m = {}; users.forEach((u) => { m[u.id] = u.name || u.nome || u.email || `#${u.id}`; }); return m;
+  }, [users]);
+  const dealMap = useMemo(() => {
+    const m = {}; deals.forEach((d) => { m[d.id] = d.title || d.titulo || `#${d.id}`; }); return m;
+  }, [deals]);
+
+  const respOpts = useMemo(() => {
+    const ids = [...new Set(items.map((i) => i.responsibleId).filter(Boolean))];
+    return [{ value: '', label: 'Todos responsáveis' }, ...ids.map((id) => ({ value: String(id), label: userMap[id] || `#${id}` }))];
+  }, [items, userMap]);
+
+  const vinculoOpts = useMemo(() => {
+    const ids = [...new Set(items.map((i) => i.dealId).filter(Boolean))];
+    return [{ value: '', label: 'Todos vínculos' }, ...ids.map((id) => ({ value: String(id), label: dealMap[id] || `#${id}` }))];
+  }, [items, dealMap]);
+
+  const statusOpts = useMemo(() => [
+    { value: '', label: 'Todos status' },
+    ...STATUSES.map((s) => ({ value: s, label: s })),
+  ], []);
+
+  // Filtered items
+  const filtered = useMemo(() => items.filter((i) => {
+    if (search           && !i.title?.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterStatus     && i.status !== filterStatus)                              return false;
+    if (filterResponsible&& String(i.responsibleId) !== filterResponsible)          return false;
+    if (filterVinculo    && String(i.dealId)         !== filterVinculo)             return false;
+    return true;
+  }), [items, search, filterStatus, filterResponsible, filterVinculo]);
+
+  const byStatus = useMemo(() => {
+    const m = {}; STATUSES.forEach((s) => { m[s] = []; });
+    filtered.forEach((i) => { if (m[i.status]) m[i.status].push(i); });
+    return m;
+  }, [filtered]);
 
   const hasFilters = search || filterStatus || filterResponsible || filterVinculo || filterClient;
 
   return (
     <div className="space-y-4">
-      {/* ── Title ── */}
-      <div className="flex items-center gap-3">
-        {color && <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />}
-        <h1 className="text-xl font-extrabold text-erplus-text">{label}</h1>
+
+      {/* ── Header row: title + button ── */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {color && <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: color }} />}
+          <h1 className="text-xl font-extrabold text-erplus-text">{label}</h1>
+        </div>
+        <button
+          onClick={() => setModal('new')}
+          className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-erplus-accent/90 transition-colors shadow-sm"
+        >
+          <Plus size={16} /> Novo {singular}
+        </button>
       </div>
 
-      {/* ── Header row ── */}
+      {/* ── Filter bar ── */}
       <div className="flex items-center gap-2 flex-wrap">
-
         {/* Search */}
         <div className="relative flex-1 min-w-[180px] max-w-xs">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder={`Pesquisar ${label.toLowerCase()}...`}
-            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-erplus-accent focus:ring-2 focus:ring-erplus-accent/20"
+            placeholder={`Pesquisar ${singular.toLowerCase()}...`}
+            className="w-full pl-8 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-erplus-accent/20 bg-white"
           />
         </div>
 
-        {/* View toggle */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setView('kanban')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
-              view === 'kanban'
-                ? 'bg-erplus-accent text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 border border-gray-200 bg-white'
-            }`}
-          >
-            <Kanban size={14} />
-            Kanban
+        {/* Kanban / Lista toggle */}
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          <button onClick={() => setView('kanban')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              view === 'kanban' ? 'bg-erplus-accent text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            <LayoutGrid size={13} /> Kanban
           </button>
-          <button
-            onClick={() => setView('list')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition ${
-              view === 'list'
-                ? 'bg-erplus-accent text-white shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 border border-gray-200 bg-white'
-            }`}
-          >
-            <LayoutList size={14} />
-            Lista
+          <button onClick={() => setView('list')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              view === 'list' ? 'bg-erplus-accent text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            <LayoutList size={13} /> Lista
           </button>
         </div>
 
-        {/* Responsible filter */}
-        <Select
-          value={filterResponsible}
-          onChange={setFilterResponsible}
-          options={[{ value: '', label: 'Todos responsáveis' }, ...users]}
-          className="min-w-[170px]"
-        />
+        {/* Todos responsáveis */}
+        <div className="w-44">
+          <Select value={filterResponsible} onChange={setFilterResponsible} options={respOpts} placeholder="Todos responsáveis" />
+        </div>
 
-        {/* Status filter */}
-        <Select
-          value={filterStatus}
-          onChange={setFilterStatus}
-          options={[{ value: '', label: 'Todos status' }, ...STATUSES.map((s) => ({ value: s, label: s }))]}
-          className="min-w-[140px]"
-        />
+        {/* Todos status */}
+        <div className="w-40">
+          <Select value={filterStatus} onChange={setFilterStatus} options={statusOpts} placeholder="Todos status" />
+        </div>
 
-        {/* Vínculo (project) filter */}
-        <Select
-          value={filterVinculo}
-          onChange={setFilterVinculo}
-          options={[{ value: '', label: 'Todos vínculos' }, ...projects]}
-          className="min-w-[150px]"
-        />
+        {/* Todos vínculos */}
+        <div className="w-44">
+          <Select value={filterVinculo} onChange={setFilterVinculo} options={vinculoOpts} placeholder="Todos vínculos" />
+        </div>
 
-        {/* Client filter */}
-        <Select
-          value={filterClient}
-          onChange={setFilterClient}
-          options={[{ value: '', label: 'Todos os clientes' }, ...clients]}
-          className="min-w-[170px]"
-        />
-
-        {/* New item button */}
-        <button
-          onClick={() => setModal('new')}
-          className="flex items-center gap-2 px-4 py-2 bg-erplus-accent text-white rounded-lg text-sm font-semibold hover:bg-red-700 ml-auto"
-        >
-          <Plus size={16} /> Novo Item
-        </button>
-      </div>
-
-      {/* ── Count ── */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-gray-500">
-          {filtered.length} {label.toLowerCase()}(s)
+        {/* Count + clear */}
+        <span className="ml-auto text-sm text-gray-500 whitespace-nowrap">
+          {filtered.length} {label?.toLowerCase()}(s)
         </span>
         {hasFilters && (
           <button
             onClick={() => { setSearch(''); setFilterStatus(''); setFilterResponsible(''); setFilterVinculo(''); setFilterClient(''); }}
-            className="text-xs text-erplus-accent hover:underline"
+            className="text-xs text-erplus-accent hover:underline whitespace-nowrap"
           >
             Limpar filtros
           </button>
@@ -371,13 +466,12 @@ export default function ProductionCategoryPage({ category, label, color }) {
       {loading ? (
         <div className="text-center py-12 text-gray-400">Carregando...</div>
       ) : view === 'kanban' ? (
-        /* ── Kanban View ── */
         <div className="flex gap-3 overflow-x-auto pb-4">
           {STATUSES.map((status) => (
             <KanbanColumn
               key={status}
               status={status}
-              items={filtered.filter((i) => i.status === status)}
+              items={byStatus[status] || []}
               onStatusDrop={handleStatusChange}
               onEdit={(item) => setModal(item)}
               onDelete={handleDelete}
@@ -385,7 +479,6 @@ export default function ProductionCategoryPage({ category, label, color }) {
           ))}
         </div>
       ) : (
-        /* ── List View ── */
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -398,47 +491,36 @@ export default function ProductionCategoryPage({ category, label, color }) {
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="text-center py-12 text-gray-400">
-                    {hasFilters ? 'Nenhum item corresponde aos filtros' : `Nenhum item em ${label}`}
+                <tr><td colSpan={4} className="text-center py-12 text-gray-400">
+                  {hasFilters ? 'Nenhum item corresponde aos filtros' : `Nenhum item em ${label}`}
+                </td></tr>
+              ) : filtered.map((item) => (
+                <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/50">
+                  <td className="px-5 py-3">
+                    <div className="text-sm font-semibold">{item.title}</div>
+                    {item.description && <div className="text-xs text-gray-400 mt-0.5">{item.description}</div>}
+                    {item.prodItemTypeName && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">{item.prodItemTypeName}</span>
+                    )}
+                  </td>
+                  <td className="px-5 py-3">
+                    {item.due ? (
+                      <span className={`text-sm flex items-center gap-1 ${item.isOverdue ? 'text-red-500 font-semibold' : 'text-gray-600'}`}>
+                        <Clock size={12} />{fmtDate(item.due)}
+                      </span>
+                    ) : <span className="text-gray-300 text-sm">—</span>}
+                  </td>
+                  <td className="px-5 py-3">
+                    <Select value={item.status} onChange={(v) => handleStatusChange(item.id, v)} options={STATUSES} size="sm" />
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    <div className="flex items-center justify-end gap-1">
+                      <button onClick={() => setModal(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit size={14} /></button>
+                      <button onClick={() => handleDelete(item.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14} /></button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filtered.map((item) => (
-                  <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50/50">
-                    <td className="px-5 py-3">
-                      <div className="text-sm font-semibold">{item.title}</div>
-                      {item.description && <div className="text-xs text-gray-400 mt-0.5">{item.description}</div>}
-                      {item.prodItemTypeName && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-600 font-semibold">{item.prodItemTypeName}</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      {item.due ? (
-                        <span className={`text-sm flex items-center gap-1 ${item.isOverdue ? 'text-red-500 font-semibold' : 'text-gray-600'}`}>
-                          <Clock size={12} />
-                          {fmtDate(item.due)}
-                        </span>
-                      ) : (
-                        <span className="text-gray-300 text-sm">—</span>
-                      )}
-                    </td>
-                    <td className="px-5 py-3">
-                      <Select value={item.status} onChange={(v) => handleStatusChange(item.id, v)} options={STATUSES} size="sm" />
-                    </td>
-                    <td className="px-5 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setModal(item)} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
-                          <Edit size={14} />
-                        </button>
-                        <button onClick={() => handleDelete(item.id)} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))}
             </tbody>
           </table>
         </div>
@@ -448,6 +530,9 @@ export default function ProductionCategoryPage({ category, label, color }) {
         <ItemModal
           item={modal === 'new' ? null : modal}
           category={category}
+          singular={singular}
+          users={users}
+          deals={deals}
           onClose={() => setModal(null)}
           onSaved={fetchData}
         />

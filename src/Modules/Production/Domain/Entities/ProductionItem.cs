@@ -14,6 +14,7 @@ public class ProductionItem : BaseEntity
     public int ResponsibleId { get; set; }
     public DateTime? Due { get; set; }
     public int? ProdItemTypeId { get; set; }
+    public string? SubtasksJson { get; set; }  // JSON array of subtask strings
 
     public ProductionItemType? ProdItemType { get; set; }
 }
